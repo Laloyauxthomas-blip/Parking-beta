@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <title>Parking Beta</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f4f5f7;
+      color: #111;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app {
+      max-width: 520px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 30px 22px;
+      margin-top: 30px;
+      text-align: center;
+      box-shadow: 0 5px 20px rgba(0,0,0,.06);
+    }
+
+    .logo {
+      font-size: 58px;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin: 5px 0 10px;
+    }
+
+    h2 {
+      font-size: 25px;
+      margin-top: 25px;
+    }
+
+    p {
+      font-size: 17px;
+      line-height: 1.45;
+    }
+
+    .muted {
+      color: #777;
+      font-size: 14px;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 16px;
+      padding: 18px;
+      margin-top: 20px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .black {
+      background: #111;
+      color: white;
+    }
+
+    .result {
+      display: none;
+      margin-top: 20px;
+      padding: 18px;
+      border-radius: 16px;
+      line-height: 1.5;
+    }
+
+    .success {
+      display: block;
+      background: #e1f5e7;
+      color: #126b32;
+    }
+
+    .error {
+      display: block;
+      background: #ffe2e2;
+      color: #9b1c1c;
+    }
+
+    .loading {
+      display: block;
+      background: #eeeeee;
+      color: #444;
+    }
+
+    .coordinates {
+      margin-top: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,.65);
+      border-radius: 12px;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 7px 12px;
+      border-radius: 20px;
+      background: #eee;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+
+<body>
+
+<div class="app">
+
+  <div class="card">
+
+    <div class="logo">
+      🅿️
+    </div>
+
+    <h1>
+      Parking Beta
+    </h1>
+
+    <p>
+      Premier test de la nouvelle version.
+    </p>
+
+    <div class="badge">
+      📍 Test GPS
+    </div>
+
+    <h2>
+      Autoriser votre position
+    </h2>
+
+    <p>
+      Parking Beta utilise votre position
+      pour trouver et signaler les places
+      disponibles autour de vous.
+    </p>
+
+    <p class="muted">
+      Pour cette bêta, votre position sert
+      uniquement aux tests de l'application.
+    </p>
+
+    <button
+      class="black"
+      onclick="testerGPS()">
+
+      📍 Activer ma localisation
+
+    </button>
+
+    <div
+      id="result"
+      class="result">
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+function testerGPS() {
+
+  const result =
+    document.getElementById("result");
+
+
+  result.className =
+    "result loading";
+
+  result.innerHTML =
+    "📡 Recherche de votre position...";
+
+
+  if (!navigator.geolocation) {
+
+    result.className =
+      "result error";
+
+    result.innerHTML =
+      "❌ Votre navigateur ne permet pas la localisation.";
+
+    return;
+  }
+
+
+  navigator.geolocation.getCurrentPosition(
+
+    function(position) {
+
+      const latitude =
+        position.coords.latitude;
+
+      const longitude =
+        position.coords.longitude;
+
+      const precision =
+        Math.round(
+          position.coords.accuracy
+        );
+
+
+      result.className =
+        "result success";
+
+
+      result.innerHTML =
+
+        "✅ <b>GPS ACTIVÉ !</b>" +
+
+        "<br><br>" +
+
+        "Parking Beta connaît maintenant votre position." +
+
+        "<div class='coordinates'>" +
+
+        "📍 Latitude : " +
+        latitude.toFixed(6) +
+
+        "<br>" +
+
+        "📍 Longitude : " +
+        longitude.toFixed(6) +
+
+        "<br>" +
+
+        "🎯 Précision : environ " +
+        precision +
+        " mètres" +
+
+        "</div>";
+
+    },
+
+
+    function(error) {
+
+      result.className =
+        "result error";
+
+
+      if (error.code === 1) {
+
+        result.innerHTML =
+
+          "❌ <b>Localisation refusée</b>" +
+
+          "<br><br>" +
+
+          "Autorisez la localisation pour ce site dans les réglages du navigateur.";
+
+      }
+
+
+      else if (error.code === 2) {
+
+        result.innerHTML =
+
+          "❌ Impossible de déterminer votre position.";
+
+      }
+
+
+      else if (error.code === 3) {
+
+        result.innerHTML =
+
+          "❌ Le GPS met trop de temps à répondre. Réessayez.";
+
+      }
+
+
+      else {
+
+        result.innerHTML =
+
+          "❌ Une erreur GPS est survenue.";
+
+      }
+
+    },
+
+
+    {
+      enableHighAccuracy: true,
+      timeout: 30000,
+      maximumAge: 0
+    }
+
+  );
+
+}
+
+</script>
+
+</body>
+</html>
