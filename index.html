@@ -50,7 +50,10 @@ header{
  font-weight:800;
 }
 
-#map{flex:1;min-height:300px}
+#map{
+ flex:1;
+ min-height:300px;
+}
 
 .bottom{
  background:white;
@@ -76,11 +79,26 @@ button{
  cursor:pointer;
 }
 
-.primary{background:#111;color:white}
+.primary{
+ background:#111;
+ color:white;
+}
 
 .secondary{
  background:#eee;
  color:#111;
+ margin-top:9px;
+}
+
+.success{
+ background:#e9f8ee;
+ color:#157331;
+ margin-top:9px;
+}
+
+.danger{
+ background:#fff0f0;
+ color:#b42318;
  margin-top:9px;
 }
 
@@ -114,8 +132,15 @@ button{
  box-shadow:0 10px 35px rgba(0,0,0,.12);
 }
 
-.card h1{margin-top:0;margin-bottom:8px}
-.card p{color:#666;margin-top:0}
+.card h1{
+ margin-top:0;
+ margin-bottom:8px;
+}
+
+.card p{
+ color:#666;
+ margin-top:0;
+}
 
 input{
  width:100%;
@@ -126,7 +151,9 @@ input{
  margin:7px 0;
 }
 
-.hidden{display:none!important}
+.hidden{
+ display:none!important;
+}
 
 .toast{
  position:fixed;
@@ -151,8 +178,8 @@ input{
 }
 
 .spot-icon{
- width:38px;
- height:38px;
+ width:42px;
+ height:42px;
  background:#111;
  border:4px solid white;
  border-radius:50%;
@@ -160,7 +187,7 @@ input{
  display:flex;
  align-items:center;
  justify-content:center;
- font-size:19px;
+ font-size:20px;
  box-shadow:0 3px 10px rgba(0,0,0,.35);
 }
 
@@ -284,6 +311,117 @@ input{
 .required{
  color:#d00;
 }
+
+/* FICHE CONDUCTEUR */
+
+#driverSheet{
+ position:fixed;
+ left:0;
+ right:0;
+ bottom:0;
+ z-index:6500;
+ background:white;
+ border-radius:26px 26px 0 0;
+ padding:12px 18px calc(20px + env(safe-area-inset-bottom));
+ box-shadow:0 -8px 30px rgba(0,0,0,.18);
+ max-height:75vh;
+ overflow:auto;
+}
+
+.sheetHandle{
+ width:45px;
+ height:5px;
+ border-radius:5px;
+ background:#ddd;
+ margin:0 auto 15px;
+}
+
+.sheetTop{
+ display:flex;
+ align-items:flex-start;
+ justify-content:space-between;
+ gap:10px;
+}
+
+.sheetTitle{
+ font-size:24px;
+ font-weight:850;
+}
+
+.sheetClose{
+ width:38px;
+ height:38px;
+ padding:0;
+ border-radius:50%;
+ background:#eee;
+ flex:0 0 38px;
+}
+
+.freshness{
+ margin-top:5px;
+ color:#666;
+ font-size:14px;
+}
+
+.spotGrid{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:9px;
+ margin-top:16px;
+}
+
+.infoBox{
+ background:#f5f5f5;
+ padding:13px;
+ border-radius:15px;
+}
+
+.infoLabel{
+ font-size:11px;
+ color:#777;
+ margin-bottom:4px;
+}
+
+.infoValue{
+ font-weight:750;
+ font-size:14px;
+}
+
+.distanceBox{
+ margin-top:10px;
+ background:#eef5ff;
+ color:#31547a;
+ border-radius:15px;
+ padding:13px;
+ font-weight:700;
+}
+
+.validationBox{
+ margin-top:16px;
+ padding-top:15px;
+ border-top:1px solid #eee;
+}
+
+.validationTitle{
+ font-weight:800;
+ margin-bottom:4px;
+}
+
+.validationText{
+ color:#777;
+ font-size:13px;
+}
+
+.route{
+ margin-top:16px;
+}
+
+.smallNote{
+ text-align:center;
+ color:#888;
+ font-size:11px;
+ margin-top:10px;
+}
 </style>
 </head>
 
@@ -365,6 +503,127 @@ input{
 </div>
 
 
+<!-- FICHE CONDUCTEUR -->
+
+<div id="driverSheet" class="hidden">
+
+ <div class="sheetHandle"></div>
+
+ <div class="sheetTop">
+
+   <div>
+     <div class="sheetTitle">
+       🚗 Place disponible
+     </div>
+
+     <div
+     id="driverFreshness"
+     class="freshness">
+     Signalée récemment
+     </div>
+   </div>
+
+   <button
+   class="sheetClose"
+   onclick="closeDriverSheet()">
+   ✕
+   </button>
+
+ </div>
+
+ <div class="spotGrid">
+
+   <div class="infoBox">
+     <div class="infoLabel">
+       STATIONNEMENT
+     </div>
+     <div
+     id="driverPrice"
+     class="infoValue">
+     —
+     </div>
+   </div>
+
+   <div class="infoBox">
+     <div class="infoLabel">
+       TAILLE
+     </div>
+     <div
+     id="driverSize"
+     class="infoValue">
+     —
+     </div>
+   </div>
+
+   <div class="infoBox">
+     <div class="infoLabel">
+       EMPLACEMENT
+     </div>
+     <div
+     id="driverType"
+     class="infoValue">
+     —
+     </div>
+   </div>
+
+   <div class="infoBox">
+     <div class="infoLabel">
+       FIABILITÉ
+     </div>
+     <div
+     id="driverConfirmations"
+     class="infoValue">
+     —
+     </div>
+   </div>
+
+ </div>
+
+ <div
+ id="driverDistance"
+ class="distanceBox">
+ 📍 Calcul de la distance…
+ </div>
+
+ <button
+ class="primary route"
+ onclick="navigateToSpot()">
+ 🧭 M'y rendre
+ </button>
+
+ <div class="validationBox">
+
+   <div class="validationTitle">
+   Tu es près de cette place ?
+   </div>
+
+   <div class="validationText">
+   Aide les autres conducteurs à garder
+   la carte à jour.
+   </div>
+
+   <button
+   class="success"
+   onclick="confirmSpotAvailable()">
+   ✅ Toujours libre
+   </button>
+
+   <button
+   class="danger"
+   onclick="reportSpotOccupied()">
+   ❌ Place occupée
+   </button>
+
+ </div>
+
+ <div class="smallNote">
+ Les confirmations servent à améliorer
+ la fiabilité des signalements.
+ </div>
+
+</div>
+
+
 <!-- FORMULAIRE -->
 
 <div id="reportScreen" class="hidden">
@@ -378,13 +637,13 @@ input{
      <div class="report-title">
        Signaler une place
      </div>
+
      <div style="color:#777;font-size:13px">
        Environ 10 secondes
      </div>
    </div>
 
  </div>
-
 
  <div class="report-info">
  📍 Ta position GPS et l'heure du signalement
@@ -430,6 +689,7 @@ input{
  <h3>🅿️ Où est la place ?</h3>
 
  <div class="options">
+
    <div class="choice"
    data-group="parking_type"
    data-value="street">
@@ -441,8 +701,8 @@ input{
    data-value="parking">
    🅿️ Parking public
    </div>
- </div>
 
+ </div>
  </div>
 
 
@@ -471,7 +731,6 @@ input{
    </div>
 
  </div>
-
  </div>
 
 
@@ -506,7 +765,6 @@ input{
    </div>
 
  </div>
-
  </div>
 
 
@@ -535,7 +793,6 @@ input{
    </div>
 
  </div>
-
  </div>
 
 
@@ -564,7 +821,6 @@ input{
    </div>
 
  </div>
-
  </div>
 
 
@@ -593,7 +849,6 @@ input{
    </div>
 
  </div>
-
  </div>
 
 
@@ -626,7 +881,6 @@ input{
    </div>
 
  </div>
-
  </div>
 
 
@@ -634,17 +888,13 @@ input{
  id="publishButton"
  class="primary publish"
  onclick="publishSpot()">
-
  ✅ Publier la place
-
  </button>
 
  <button
  class="secondary"
  onclick="closeReport()">
-
  Annuler
-
  </button>
 
 </div>
@@ -658,7 +908,7 @@ const SUPABASE_URL =
 const SUPABASE_KEY =
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzaGdob3pmeXhsYmVrYnhxZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NTc0ODYsImV4cCI6MjEwNTQzMzQ4Nn0.X49lm14IC3lP_1dCucqDSa5Gmu4-s4ApLK-7UcNwZ0U";
 
-const db =
+const db=
 supabase.createClient(
  SUPABASE_URL,
  SUPABASE_KEY
@@ -670,6 +920,7 @@ let userMarker=null;
 let spotMarkers=[];
 let reportData={};
 let selectedPhoto=null;
+let selectedSpot=null;
 
 
 // CARTE
@@ -932,6 +1183,8 @@ function centerUser(){
 
 function openReport(){
 
+ closeDriverSheet();
+
  if(!userPosition){
    toast("Attends que ta position soit trouvée.");
    return;
@@ -1028,11 +1281,7 @@ async function publishSpot(){
  required.filter(key=>!reportData[key]);
 
  if(missing.length){
-
-   toast(
-   "Réponds à toutes les questions."
-   );
-
+   toast("Réponds à toutes les questions.");
    return;
  }
 
@@ -1047,10 +1296,6 @@ async function publishSpot(){
  button.disabled=true;
  button.textContent="⏳ Publication…";
 
-
- // Les places réservées ou avec obstacle
- // sont envoyées en vérification.
-
  let aiStatus="pending";
 
  if(
@@ -1061,20 +1306,15 @@ async function publishSpot(){
    aiStatus="review";
  }
 
-
  const {data,error}=
  await db
  .from("parking_spots")
  .insert({
 
    latitude:userPosition.lat,
-
    longitude:userPosition.lng,
-
    accuracy:userPosition.accuracy,
-
    reported_by:currentUser.id,
-
    status:"available",
 
    parking_type:
@@ -1096,29 +1336,25 @@ async function publishSpot(){
    vehicle_size:
    reportData.vehicle_size,
 
-   ai_status:aiStatus
+   ai_status:aiStatus,
+
+   occupied_reports:0,
+   confirmed_reports:0
 
  })
  .select()
  .single();
 
-
  button.disabled=false;
  button.textContent=
  "✅ Publier la place";
 
-
  if(error){
 
    console.error(error);
-
-   toast(
-   "Erreur : "+error.message
-   );
-
+   toast("Erreur : "+error.message);
    return;
  }
-
 
  closeReport();
 
@@ -1127,7 +1363,6 @@ async function publishSpot(){
  resetReport();
 
  await loadSpots();
-
 }
 
 
@@ -1155,7 +1390,7 @@ function resetReport(){
 }
 
 
-// PLACES
+// CHARGEMENT DES PLACES
 
 async function loadSpots(){
 
@@ -1194,12 +1429,14 @@ function clearSpotMarkers(){
 }
 
 
+// MARQUEUR CONDUCTEUR
+
 function addSpotMarker(spot){
 
  if(
  !spot ||
- !spot.latitude ||
- !spot.longitude
+ spot.latitude==null ||
+ spot.longitude==null
  ){
    return;
  }
@@ -1215,8 +1452,8 @@ function addSpotMarker(spot){
    className:"",
    html:
    '<div class="spot-icon">P</div>',
-   iconSize:[38,38],
-   iconAnchor:[19,19]
+   iconSize:[42,42],
+   iconAnchor:[21,21]
  });
 
  const marker=
@@ -1225,41 +1462,329 @@ function addSpotMarker(spot){
  {icon}
  ).addTo(map);
 
+ marker.on("click",()=>{
+   openDriverSheet(spot);
+ });
+
+ spotMarkers.push(marker);
+}
+
+
+// FICHE CONDUCTEUR
+
+function openDriverSheet(spot){
+
+ selectedSpot=spot;
+
  const created=
  spot.created_at
  ? new Date(spot.created_at)
  : new Date();
 
- let details="";
+ document
+ .getElementById("driverFreshness")
+ .textContent=
+ "Signalée il y a "+timeAgo(created);
 
- if(spot.price_type==="free"){
-   details+="<br>💳 Gratuit";
+ document
+ .getElementById("driverPrice")
+ .textContent=
+ priceLabel(spot.price_type);
+
+ document
+ .getElementById("driverSize")
+ .textContent=
+ sizeLabel(spot.vehicle_size);
+
+ document
+ .getElementById("driverType")
+ .textContent=
+ typeLabel(spot.parking_type);
+
+ const confirmations=
+ Number(spot.confirmed_reports)||0;
+
+ document
+ .getElementById("driverConfirmations")
+ .textContent=
+ confirmations===0
+ ? "Nouveau signalement"
+ : confirmations+
+   (confirmations===1
+   ? " confirmation"
+   : " confirmations");
+
+ updateDriverDistance();
+
+ document
+ .getElementById("driverSheet")
+ .classList.remove("hidden");
+}
+
+
+function closeDriverSheet(){
+
+ document
+ .getElementById("driverSheet")
+ .classList.add("hidden");
+
+ selectedSpot=null;
+}
+
+
+function priceLabel(value){
+
+ if(value==="free"){
+   return "💳 Gratuit";
  }
 
- if(spot.price_type==="paid"){
-   details+="<br>💳 Payant";
+ if(value==="paid"){
+   return "💳 Payant";
  }
 
- if(spot.vehicle_size==="small"){
-   details+="<br>🚗 Petite place";
+ return "❓ Non précisé";
+}
+
+
+function sizeLabel(value){
+
+ if(value==="small"){
+   return "🚗 Petite";
  }
 
- if(spot.vehicle_size==="standard"){
-   details+="<br>🚗 Taille standard";
+ if(value==="large"){
+   return "🚙 Grande";
  }
 
- if(spot.vehicle_size==="large"){
-   details+="<br>🚙 Grande place";
+ return "🚗 Standard";
+}
+
+
+function typeLabel(value){
+
+ if(value==="street"){
+   return "🛣️ Rue";
  }
 
- marker.bindPopup(
- "<b>🚗 Place libre</b><br>"+
- "Signalée il y a "+
- timeAgo(created)+
- details
+ if(value==="parking"){
+   return "🅿️ Parking";
+ }
+
+ return "🅿️ Non précisé";
+}
+
+
+// DISTANCE
+
+function updateDriverDistance(){
+
+ const element=
+ document.getElementById("driverDistance");
+
+ if(!selectedSpot){
+   return;
+ }
+
+ if(!userPosition){
+
+   element.textContent=
+   "📍 Distance indisponible";
+
+   return;
+ }
+
+ const distance=
+ distanceMeters(
+   userPosition.lat,
+   userPosition.lng,
+   Number(selectedSpot.latitude),
+   Number(selectedSpot.longitude)
  );
 
- spotMarkers.push(marker);
+ if(distance<1000){
+
+   element.textContent=
+   "📍 À environ "+
+   Math.round(distance)+
+   " m de toi";
+
+ }else{
+
+   element.textContent=
+   "📍 À environ "+
+   (distance/1000).toFixed(1)+
+   " km de toi";
+ }
+}
+
+
+function distanceMeters(
+ lat1,
+ lon1,
+ lat2,
+ lon2
+){
+
+ const R=6371000;
+
+ const toRad=
+ value=>value*Math.PI/180;
+
+ const dLat=
+ toRad(lat2-lat1);
+
+ const dLon=
+ toRad(lon2-lon1);
+
+ const a=
+ Math.sin(dLat/2)*
+ Math.sin(dLat/2)+
+ Math.cos(toRad(lat1))*
+ Math.cos(toRad(lat2))*
+ Math.sin(dLon/2)*
+ Math.sin(dLon/2);
+
+ const c=
+ 2*Math.atan2(
+ Math.sqrt(a),
+ Math.sqrt(1-a)
+ );
+
+ return R*c;
+}
+
+
+// GPS / ITINÉRAIRE
+
+function navigateToSpot(){
+
+ if(!selectedSpot){
+   return;
+ }
+
+ const lat=
+ Number(selectedSpot.latitude);
+
+ const lng=
+ Number(selectedSpot.longitude);
+
+ /*
+ Sur iPhone, l'ouverture de maps.apple.com
+ bascule normalement vers Plans.
+ Sur les autres appareils, le lien reste
+ utilisable dans le navigateur.
+ */
+
+ const url=
+ "https://maps.apple.com/?daddr="+
+ encodeURIComponent(lat+","+lng)+
+ "&dirflg=d";
+
+ window.location.href=url;
+}
+
+
+// CONFIRMER PLACE LIBRE
+
+async function confirmSpotAvailable(){
+
+ if(!selectedSpot){
+   return;
+ }
+
+ const spotId=
+ selectedSpot.id;
+
+ const current=
+ Number(
+ selectedSpot.confirmed_reports
+ )||0;
+
+ const {error}=
+ await db
+ .from("parking_spots")
+ .update({
+
+   confirmed_reports:current+1,
+
+   last_confirmed_at:
+   new Date().toISOString()
+
+ })
+ .eq("id",spotId);
+
+ if(error){
+
+   console.error(error);
+
+   toast(
+   "Impossible de confirmer la place."
+   );
+
+   return;
+ }
+
+ toast("✅ Merci, place confirmée !");
+
+ closeDriverSheet();
+
+ await loadSpots();
+}
+
+
+// SIGNALER OCCUPÉE
+
+async function reportSpotOccupied(){
+
+ if(!selectedSpot){
+   return;
+ }
+
+ const spotId=
+ selectedSpot.id;
+
+ const current=
+ Number(
+ selectedSpot.occupied_reports
+ )||0;
+
+ /*
+ Pour la bêta :
+ dès qu'un conducteur indique qu'elle
+ est occupée, on retire la place.
+
+ Plus tard on pourra utiliser plusieurs
+ confirmations et un score de confiance.
+ */
+
+ const {error}=
+ await db
+ .from("parking_spots")
+ .update({
+
+   occupied_reports:current+1,
+
+   status:"occupied"
+
+ })
+ .eq("id",spotId);
+
+ if(error){
+
+   console.error(error);
+
+   toast(
+   "Impossible de mettre à jour la place."
+   );
+
+   return;
+ }
+
+ toast("🚗 Place retirée de la carte.");
+
+ closeDriverSheet();
+
+ await loadSpots();
 }
 
 
@@ -1267,60 +1792,57 @@ function addSpotMarker(spot){
 
 function timeAgo(date){
 
- const minutes=
+ const seconds=
  Math.max(
  0,
  Math.floor(
- (Date.now()-date.getTime())/60000
+ (Date.now()-date.getTime())/1000
  )
  );
 
- if(minutes<1){
+ if(seconds<60){
    return "quelques secondes";
  }
+
+ const minutes=
+ Math.floor(seconds/60);
 
  if(minutes===1){
    return "1 minute";
  }
 
- return minutes+" minutes";
+ if(minutes<60){
+   return minutes+" minutes";
+ }
+
+ const hours=
+ Math.floor(minutes/60);
+
+ if(hours===1){
+   return "1 heure";
+ }
+
+ return hours+" heures";
 }
 
 
 // TEMPS RÉEL
 
+let spotsChannel=null;
+
 function subscribeSpots(){
 
+ if(spotsChannel){
+   return;
+ }
+
+ spotsChannel=
  db.channel("parking-spots-live")
 
  .on(
  "postgres_changes",
  {
-   event:"INSERT",
-   schema:"public",
-   table:"parking_spots"
- },
- payload=>{
-   addSpotMarker(payload.new);
- }
- )
-
- .on(
- "postgres_changes",
- {
-   event:"UPDATE",
-   schema:"public",
-   table:"parking_spots"
- },
- ()=>{
-   loadSpots();
- }
- )
-
- .on(
- "postgres_changes",
- {
-   event:"DELETE",
+   event:"*",
    schema:"public",
    table:"parking_spots"
  },
