@@ -1,317 +1,263 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Parking Beta</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
 
   <style>
     * {
       box-sizing: border-box;
     }
 
-    body {
+    html, body {
       margin: 0;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #f4f5f7;
       color: #111;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
     .app {
-      max-width: 520px;
-      margin: auto;
-      padding: 20px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
     }
 
-    .card {
+    header {
       background: white;
-      border-radius: 24px;
-      padding: 30px 22px;
-      margin-top: 30px;
-      text-align: center;
-      box-shadow: 0 5px 20px rgba(0,0,0,.06);
+      padding: calc(14px + env(safe-area-inset-top)) 18px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
+      z-index: 1000;
     }
 
     .logo {
-      font-size: 58px;
-      margin-bottom: 10px;
+      font-size: 21px;
+      font-weight: 800;
     }
 
-    h1 {
-      font-size: 32px;
-      margin: 5px 0 10px;
+    .beta {
+      background: #eee;
+      padding: 6px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
     }
 
-    h2 {
-      font-size: 25px;
-      margin-top: 25px;
+    #map {
+      flex: 1;
+      width: 100%;
     }
 
-    p {
-      font-size: 17px;
-      line-height: 1.45;
+    .panel {
+      background: white;
+      padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+      box-shadow: 0 -5px 20px rgba(0,0,0,.10);
+      z-index: 1000;
     }
 
-    .muted {
-      color: #777;
+    .status {
+      text-align: center;
       font-size: 14px;
+      margin-bottom: 12px;
+      color: #666;
     }
 
     button {
       width: 100%;
-      border: 0;
-      border-radius: 16px;
-      padding: 18px;
-      margin-top: 20px;
+      border: none;
+      border-radius: 17px;
+      padding: 17px;
       font-size: 17px;
-      font-weight: 700;
+      font-weight: 750;
       cursor: pointer;
     }
 
-    .black {
+    #reportBtn {
       background: #111;
       color: white;
     }
 
-    .result {
-      display: none;
-      margin-top: 20px;
-      padding: 18px;
-      border-radius: 16px;
-      line-height: 1.5;
+    #reportBtn:disabled {
+      opacity: .4;
     }
 
     .success {
-      display: block;
-      background: #e1f5e7;
-      color: #126b32;
-    }
-
-    .error {
-      display: block;
-      background: #ffe2e2;
-      color: #9b1c1c;
-    }
-
-    .loading {
-      display: block;
-      background: #eeeeee;
-      color: #444;
-    }
-
-    .coordinates {
+      display: none;
       margin-top: 12px;
-      padding: 12px;
-      background: rgba(255,255,255,.65);
-      border-radius: 12px;
-      font-size: 14px;
+      padding: 13px;
+      background: #e5f6e9;
+      color: #217a35;
+      border-radius: 14px;
+      text-align: center;
+      font-weight: 650;
     }
 
-    .badge {
-      display: inline-block;
-      padding: 7px 12px;
-      border-radius: 20px;
-      background: #eee;
-      font-size: 13px;
-      margin-top: 10px;
+    .leaflet-control-attribution {
+      font-size: 9px;
     }
   </style>
 </head>
-
 
 <body>
 
 <div class="app">
 
-  <div class="card">
+  <header>
+    <div class="logo">🅿️ Parking Beta</div>
+    <div class="beta">BETA</div>
+  </header>
 
-    <div class="logo">
-      🅿️
+  <div id="map"></div>
+
+  <div class="panel">
+
+    <div class="status" id="status">
+      📍 Recherche de votre position...
     </div>
 
-    <h1>
-      Parking Beta
-    </h1>
-
-    <p>
-      Premier test de la nouvelle version.
-    </p>
-
-    <div class="badge">
-      📍 Test GPS
-    </div>
-
-    <h2>
-      Autoriser votre position
-    </h2>
-
-    <p>
-      Parking Beta utilise votre position
-      pour trouver et signaler les places
-      disponibles autour de vous.
-    </p>
-
-    <p class="muted">
-      Pour cette bêta, votre position sert
-      uniquement aux tests de l'application.
-    </p>
-
-    <button
-      class="black"
-      onclick="testerGPS()">
-
-      📍 Activer ma localisation
-
+    <button id="reportBtn" disabled>
+      📍 Signaler une place libre
     </button>
 
-    <div
-      id="result"
-      class="result">
+    <div class="success" id="success">
+      ✅ Place signalée !
     </div>
 
   </div>
 
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 
-function testerGPS() {
+let latitude = null;
+let longitude = null;
 
-  const result =
-    document.getElementById("result");
+const map = L.map("map", {
+  zoomControl: false
+}).setView([50.6292, 3.0573], 13);
 
-
-  result.className =
-    "result loading";
-
-  result.innerHTML =
-    "📡 Recherche de votre position...";
-
-
-  if (!navigator.geolocation) {
-
-    result.className =
-      "result error";
-
-    result.innerHTML =
-      "❌ Votre navigateur ne permet pas la localisation.";
-
-    return;
+L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap"
   }
+).addTo(map);
 
+L.control.zoom({
+  position: "topright"
+}).addTo(map);
+
+const status = document.getElementById("status");
+const reportBtn = document.getElementById("reportBtn");
+const success = document.getElementById("success");
+
+if ("geolocation" in navigator) {
 
   navigator.geolocation.getCurrentPosition(
 
     function(position) {
 
-      const latitude =
-        position.coords.latitude;
+      latitude = position.coords.latitude;
+      longitude = position.coords.longitude;
 
-      const longitude =
-        position.coords.longitude;
+      map.setView([latitude, longitude], 17);
 
-      const precision =
-        Math.round(
-          position.coords.accuracy
-        );
+      L.circleMarker(
+        [latitude, longitude],
+        {
+          radius: 10,
+          fillColor: "#1677ff",
+          color: "white",
+          weight: 4,
+          fillOpacity: 1
+        }
+      ).addTo(map)
+       .bindPopup("📍 Vous êtes ici");
 
+      status.textContent =
+        "📍 Position trouvée • précision ≈ " +
+        Math.round(position.coords.accuracy) +
+        " m";
 
-      result.className =
-        "result success";
-
-
-      result.innerHTML =
-
-        "✅ <b>GPS ACTIVÉ !</b>" +
-
-        "<br><br>" +
-
-        "Parking Beta connaît maintenant votre position." +
-
-        "<div class='coordinates'>" +
-
-        "📍 Latitude : " +
-        latitude.toFixed(6) +
-
-        "<br>" +
-
-        "📍 Longitude : " +
-        longitude.toFixed(6) +
-
-        "<br>" +
-
-        "🎯 Précision : environ " +
-        precision +
-        " mètres" +
-
-        "</div>";
-
+      reportBtn.disabled = false;
     },
-
 
     function(error) {
 
-      result.className =
-        "result error";
+      status.textContent =
+        "❌ Impossible d'obtenir votre position";
 
-
-      if (error.code === 1) {
-
-        result.innerHTML =
-
-          "❌ <b>Localisation refusée</b>" +
-
-          "<br><br>" +
-
-          "Autorisez la localisation pour ce site dans les réglages du navigateur.";
-
-      }
-
-
-      else if (error.code === 2) {
-
-        result.innerHTML =
-
-          "❌ Impossible de déterminer votre position.";
-
-      }
-
-
-      else if (error.code === 3) {
-
-        result.innerHTML =
-
-          "❌ Le GPS met trop de temps à répondre. Réessayez.";
-
-      }
-
-
-      else {
-
-        result.innerHTML =
-
-          "❌ Une erreur GPS est survenue.";
-
-      }
-
+      console.log(error);
     },
-
 
     {
       enableHighAccuracy: true,
-      timeout: 30000,
+      timeout: 15000,
       maximumAge: 0
     }
-
   );
 
+} else {
+
+  status.textContent =
+    "❌ GPS non disponible sur cet appareil";
 }
+
+
+reportBtn.addEventListener("click", function() {
+
+  if (latitude === null || longitude === null) {
+    return;
+  }
+
+  const parkingIcon = L.divIcon({
+    html: `
+      <div style="
+        background:#111;
+        color:white;
+        width:42px;
+        height:42px;
+        border-radius:50%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:22px;
+        border:4px solid white;
+        box-shadow:0 3px 12px rgba(0,0,0,.3);
+      ">P</div>
+    `,
+    className: "",
+    iconSize: [42,42],
+    iconAnchor: [21,21]
+  });
+
+  L.marker(
+    [latitude, longitude],
+    { icon: parkingIcon }
+  )
+  .addTo(map)
+  .bindPopup("🚗 Place libre signalée")
+  .openPopup();
+
+  success.style.display = "block";
+
+  setTimeout(function() {
+    success.style.display = "none";
+  }, 3000);
+
+});
 
 </script>
 
