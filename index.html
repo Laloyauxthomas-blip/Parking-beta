@@ -1,263 +1,796 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Parking Beta</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
 
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+<title>Parking Beta</title>
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-    html, body {
-      margin: 0;
-      height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f4f5f7;
-      color: #111;
-    }
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    .app {
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-    }
+<style>
+*{box-sizing:border-box}
 
-    header {
-      background: white;
-      padding: calc(14px + env(safe-area-inset-top)) 18px 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      box-shadow: 0 2px 10px rgba(0,0,0,.08);
-      z-index: 1000;
-    }
+html,body{
+ margin:0;
+ height:100%;
+ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+ background:#f4f5f7;
+ color:#111;
+}
 
-    .logo {
-      font-size: 21px;
-      font-weight: 800;
-    }
+#app{
+ height:100%;
+ display:flex;
+ flex-direction:column;
+}
 
-    .beta {
-      background: #eee;
-      padding: 6px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
-    }
+header{
+ background:white;
+ padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
+ display:flex;
+ align-items:center;
+ justify-content:space-between;
+ border-bottom:1px solid #eee;
+ z-index:1000;
+}
 
-    #map {
-      flex: 1;
-      width: 100%;
-    }
+.logo{
+ font-size:23px;
+ font-weight:800;
+}
 
-    .panel {
-      background: white;
-      padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
-      box-shadow: 0 -5px 20px rgba(0,0,0,.10);
-      z-index: 1000;
-    }
+.beta{
+ background:#eee;
+ padding:7px 12px;
+ border-radius:18px;
+ font-size:12px;
+ font-weight:800;
+}
 
-    .status {
-      text-align: center;
-      font-size: 14px;
-      margin-bottom: 12px;
-      color: #666;
-    }
+#map{
+ flex:1;
+ min-height:300px;
+}
 
-    button {
-      width: 100%;
-      border: none;
-      border-radius: 17px;
-      padding: 17px;
-      font-size: 17px;
-      font-weight: 750;
-      cursor: pointer;
-    }
+.bottom{
+ background:white;
+ padding:14px 18px calc(18px + env(safe-area-inset-bottom));
+ box-shadow:0 -5px 20px rgba(0,0,0,.08);
+ z-index:1000;
+}
 
-    #reportBtn {
-      background: #111;
-      color: white;
-    }
+.status{
+ text-align:center;
+ color:#666;
+ font-size:14px;
+ margin-bottom:12px;
+}
 
-    #reportBtn:disabled {
-      opacity: .4;
-    }
+button{
+ width:100%;
+ border:0;
+ border-radius:16px;
+ padding:17px;
+ font-size:17px;
+ font-weight:800;
+ cursor:pointer;
+}
 
-    .success {
-      display: none;
-      margin-top: 12px;
-      padding: 13px;
-      background: #e5f6e9;
-      color: #217a35;
-      border-radius: 14px;
-      text-align: center;
-      font-weight: 650;
-    }
+.primary{
+ background:#111;
+ color:white;
+}
 
-    .leaflet-control-attribution {
-      font-size: 9px;
-    }
-  </style>
+.secondary{
+ background:#eee;
+ color:#111;
+ margin-top:9px;
+}
+
+.reward{
+ background:#f5f5f5;
+ padding:12px 15px;
+ border-radius:14px;
+ margin-bottom:12px;
+ display:flex;
+ justify-content:space-between;
+ font-weight:700;
+}
+
+.overlay{
+ position:fixed;
+ inset:0;
+ background:#f4f5f7;
+ z-index:5000;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ padding:25px;
+}
+
+.card{
+ background:white;
+ width:100%;
+ max-width:420px;
+ border-radius:24px;
+ padding:25px;
+ box-shadow:0 10px 35px rgba(0,0,0,.12);
+}
+
+.card h1{
+ margin-top:0;
+ margin-bottom:8px;
+}
+
+.card p{
+ color:#666;
+ margin-top:0;
+}
+
+input{
+ width:100%;
+ padding:15px;
+ border:1px solid #ddd;
+ border-radius:13px;
+ font-size:16px;
+ margin:7px 0;
+}
+
+.hidden{display:none!important}
+
+.toast{
+ position:fixed;
+ top:calc(85px + env(safe-area-inset-top));
+ left:50%;
+ transform:translateX(-50%);
+ background:#111;
+ color:white;
+ padding:12px 18px;
+ border-radius:14px;
+ z-index:9000;
+ font-weight:700;
+ max-width:90%;
+ text-align:center;
+}
+
+.userbar{
+ font-size:12px;
+ color:#777;
+ text-align:center;
+ margin-top:10px;
+}
+
+.spot-icon{
+ width:38px;
+ height:38px;
+ background:#111;
+ border:4px solid white;
+ border-radius:50%;
+ color:white;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ font-size:19px;
+ box-shadow:0 3px 10px rgba(0,0,0,.35);
+}
+</style>
 </head>
 
 <body>
 
-<div class="app">
+<div id="authScreen" class="overlay">
+ <div class="card">
+   <h1>🅿️ Parking Beta</h1>
+   <p>Connecte-toi pour voir et signaler les places libres.</p>
 
-  <header>
-    <div class="logo">🅿️ Parking Beta</div>
-    <div class="beta">BETA</div>
-  </header>
+   <input id="email" type="email"
+          placeholder="Adresse e-mail"
+          autocomplete="email">
 
-  <div id="map"></div>
+   <input id="password" type="password"
+          placeholder="Mot de passe"
+          autocomplete="current-password">
 
-  <div class="panel">
+   <button class="primary" onclick="login()">
+     Se connecter
+   </button>
 
-    <div class="status" id="status">
-      📍 Recherche de votre position...
-    </div>
-
-    <button id="reportBtn" disabled>
-      📍 Signaler une place libre
-    </button>
-
-    <div class="success" id="success">
-      ✅ Place signalée !
-    </div>
-
-  </div>
-
+   <button class="secondary" onclick="signup()">
+     Créer un compte
+   </button>
+ </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div id="app">
+
+<header>
+ <div class="logo">🅿️ Parking Beta</div>
+ <div class="beta">BETA</div>
+</header>
+
+<div id="map"></div>
+
+<div class="bottom">
+
+ <div class="reward">
+   <span>💰 Mes crédits</span>
+   <span id="credits">0</span>
+ </div>
+
+ <div id="status" class="status">
+   📍 Recherche de ta position…
+ </div>
+
+ <button id="reportButton"
+         class="primary"
+         onclick="reportSpot()">
+   📍 Signaler une place libre
+ </button>
+
+ <button class="secondary" onclick="centerUser()">
+   🎯 Recentrer sur moi
+ </button>
+
+ <div class="userbar">
+   <span id="userEmail"></span>
+   ·
+   <span onclick="logout()" style="text-decoration:underline">
+     Déconnexion
+   </span>
+ </div>
+
+</div>
+</div>
+
 
 <script>
+const SUPABASE_URL =
+"https://dshghozfyxlbekbxqeac.supabase.co";
 
-let latitude = null;
-let longitude = null;
+const SUPABASE_KEY =
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzaGdob3pmeXhsYmVrYnhxZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NTc0ODYsImV4cCI6MjEwNTQzMzQ4Nn0.X49lm14IC3lP_1dCucqDSa5Gmu4-s4ApLK-7UcNwZ0U";
 
-const map = L.map("map", {
-  zoomControl: false
-}).setView([50.6292, 3.0573], 13);
+const db =
+supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let currentUser=null;
+let userPosition=null;
+let userMarker=null;
+let spotMarkers=[];
+
+
+// ======================
+// CARTE
+// ======================
+
+const map=L.map("map").setView(
+ [50.548,3.027],
+ 15
+);
 
 L.tileLayer(
-  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  {
-    maxZoom: 19,
-    attribution: "© OpenStreetMap"
-  }
+ "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+ {
+   maxZoom:19,
+   attribution:"© OpenStreetMap"
+ }
 ).addTo(map);
 
-L.control.zoom({
-  position: "topright"
-}).addTo(map);
 
-const status = document.getElementById("status");
-const reportBtn = document.getElementById("reportBtn");
-const success = document.getElementById("success");
+// ======================
+// MESSAGE
+// ======================
 
-if ("geolocation" in navigator) {
+function toast(message){
 
-  navigator.geolocation.getCurrentPosition(
+ const div=document.createElement("div");
 
-    function(position) {
+ div.className="toast";
+ div.textContent=message;
 
-      latitude = position.coords.latitude;
-      longitude = position.coords.longitude;
+ document.body.appendChild(div);
 
-      map.setView([latitude, longitude], 17);
-
-      L.circleMarker(
-        [latitude, longitude],
-        {
-          radius: 10,
-          fillColor: "#1677ff",
-          color: "white",
-          weight: 4,
-          fillOpacity: 1
-        }
-      ).addTo(map)
-       .bindPopup("📍 Vous êtes ici");
-
-      status.textContent =
-        "📍 Position trouvée • précision ≈ " +
-        Math.round(position.coords.accuracy) +
-        " m";
-
-      reportBtn.disabled = false;
-    },
-
-    function(error) {
-
-      status.textContent =
-        "❌ Impossible d'obtenir votre position";
-
-      console.log(error);
-    },
-
-    {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    }
-  );
-
-} else {
-
-  status.textContent =
-    "❌ GPS non disponible sur cet appareil";
+ setTimeout(()=>{
+   div.remove();
+ },2500);
 }
 
 
-reportBtn.addEventListener("click", function() {
+// ======================
+// AUTH
+// ======================
 
-  if (latitude === null || longitude === null) {
-    return;
-  }
+async function login(){
 
-  const parkingIcon = L.divIcon({
-    html: `
-      <div style="
-        background:#111;
-        color:white;
-        width:42px;
-        height:42px;
-        border-radius:50%;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-size:22px;
-        border:4px solid white;
-        box-shadow:0 3px 12px rgba(0,0,0,.3);
-      ">P</div>
-    `,
-    className: "",
-    iconSize: [42,42],
-    iconAnchor: [21,21]
-  });
+ const email=
+ document.getElementById("email").value.trim();
 
-  L.marker(
-    [latitude, longitude],
-    { icon: parkingIcon }
-  )
-  .addTo(map)
-  .bindPopup("🚗 Place libre signalée")
-  .openPopup();
+ const password=
+ document.getElementById("password").value;
 
-  success.style.display = "block";
+ if(!email || !password){
+   toast("Entre ton e-mail et ton mot de passe.");
+   return;
+ }
 
-  setTimeout(function() {
-    success.style.display = "none";
-  }, 3000);
+ const {error}=
+ await db.auth.signInWithPassword({
+   email,
+   password
+ });
 
-});
+ if(error){
+   toast(error.message);
+ }
+}
+
+
+async function signup(){
+
+ const email=
+ document.getElementById("email").value.trim();
+
+ const password=
+ document.getElementById("password").value;
+
+ if(!email || password.length<6){
+   toast("Mot de passe : minimum 6 caractères.");
+   return;
+ }
+
+ const {data,error}=
+ await db.auth.signUp({
+   email,
+   password
+ });
+
+ if(error){
+   toast(error.message);
+   return;
+ }
+
+ if(data.user){
+   toast("Compte créé ✅ Vérifie ton e-mail si demandé.");
+ }
+}
+
+
+async function logout(){
+
+ await db.auth.signOut();
+
+ location.reload();
+}
+
+
+// ======================
+// SESSION
+// ======================
+
+async function checkSession(){
+
+ const {
+   data:{session}
+ }=await db.auth.getSession();
+
+ if(session){
+   startApp(session.user);
+ }
+
+ db.auth.onAuthStateChange(
+   (event,session)=>{
+
+     if(session){
+       startApp(session.user);
+     }
+   }
+ );
+}
+
+
+async function startApp(user){
+
+ currentUser=user;
+
+ document
+ .getElementById("authScreen")
+ .classList.add("hidden");
+
+ document.getElementById("userEmail")
+ .textContent=user.email || "";
+
+ await createProfile();
+
+ startLocation();
+
+ await loadSpots();
+
+ await loadCredits();
+
+ subscribeSpots();
+}
+
+
+// ======================
+// PROFIL
+// ======================
+
+async function createProfile(){
+
+ await db
+ .from("profiles")
+ .upsert({
+   id:currentUser.id,
+   pseudo:
+   currentUser.email
+   ? currentUser.email.split("@")[0]
+   : "Utilisateur"
+ });
+}
+
+
+// ======================
+// GEOLOCALISATION
+// ======================
+
+function startLocation(){
+
+ if(!navigator.geolocation){
+
+   document.getElementById("status")
+   .textContent=
+   "❌ Géolocalisation indisponible";
+
+   return;
+ }
+
+ navigator.geolocation.watchPosition(
+
+   position=>{
+
+     userPosition={
+       lat:position.coords.latitude,
+       lng:position.coords.longitude,
+       accuracy:position.coords.accuracy
+     };
+
+     document.getElementById("status")
+     .textContent=
+     "📍 Position trouvée · précision ≈ "+
+     Math.round(userPosition.accuracy)+" m";
+
+     if(!userMarker){
+
+       userMarker=L.circleMarker(
+         [userPosition.lat,userPosition.lng],
+         {
+           radius:9,
+           color:"#fff",
+           weight:4,
+           fillColor:"#007aff",
+           fillOpacity:1
+         }
+       ).addTo(map);
+
+       map.setView(
+         [userPosition.lat,userPosition.lng],
+         17
+       );
+
+     }else{
+
+       userMarker.setLatLng(
+         [userPosition.lat,userPosition.lng]
+       );
+     }
+   },
+
+   ()=>{
+     document.getElementById("status")
+     .textContent=
+     "⚠️ Autorise la localisation dans Safari";
+   },
+
+   {
+     enableHighAccuracy:true,
+     maximumAge:5000,
+     timeout:15000
+   }
+ );
+}
+
+
+function centerUser(){
+
+ if(!userPosition){
+   toast("Position pas encore trouvée.");
+   return;
+ }
+
+ map.setView(
+   [userPosition.lat,userPosition.lng],
+   18
+ );
+}
+
+
+// ======================
+// SIGNALER PLACE
+// ======================
+
+async function reportSpot(){
+
+ if(!currentUser){
+   return;
+ }
+
+ if(!userPosition){
+   toast("Attends que ta position soit trouvée.");
+   return;
+ }
+
+ if(userPosition.accuracy>100){
+
+   toast(
+     "GPS trop imprécis ("+
+     Math.round(userPosition.accuracy)+
+     " m)."
+   );
+
+   return;
+ }
+
+ const button=
+ document.getElementById("reportButton");
+
+ button.disabled=true;
+ button.textContent="⏳ Signalement…";
+
+ const {data,error}=
+ await db
+ .from("parking_spots")
+ .insert({
+   latitude:userPosition.lat,
+   longitude:userPosition.lng,
+   accuracy:userPosition.accuracy,
+   reported_by:currentUser.id,
+   status:"available"
+ })
+ .select()
+ .single();
+
+ button.disabled=false;
+ button.textContent=
+ "📍 Signaler une place libre";
+
+ if(error){
+
+   console.error(error);
+   toast("Erreur : "+error.message);
+
+   return;
+ }
+
+ toast("🚗 Place libre signalée !");
+
+ if(data){
+   addSpotMarker(data);
+ }
+}
+
+
+// ======================
+// CHARGER PLACES
+// ======================
+
+async function loadSpots(){
+
+ const now=
+ new Date().toISOString();
+
+ const {data,error}=
+ await db
+ .from("parking_spots")
+ .select("*")
+ .eq("status","available")
+ .gt("expires_at",now)
+ .order("created_at",{
+   ascending:false
+ });
+
+ if(error){
+   console.error(error);
+   return;
+ }
+
+ clearSpotMarkers();
+
+ (data||[]).forEach(addSpotMarker);
+}
+
+
+function clearSpotMarkers(){
+
+ spotMarkers.forEach(marker=>{
+   map.removeLayer(marker);
+ });
+
+ spotMarkers=[];
+}
+
+
+function addSpotMarker(spot){
+
+ if(
+   !spot ||
+   !spot.latitude ||
+   !spot.longitude
+ ){
+   return;
+ }
+
+ if(
+   spot.expires_at &&
+   new Date(spot.expires_at)<=new Date()
+ ){
+   return;
+ }
+
+ const icon=L.divIcon({
+   className:"",
+   html:'<div class="spot-icon">P</div>',
+   iconSize:[38,38],
+   iconAnchor:[19,19]
+ });
+
+ const marker=L.marker(
+   [spot.latitude,spot.longitude],
+   {icon}
+ ).addTo(map);
+
+ const created=
+ spot.created_at
+ ? new Date(spot.created_at)
+ : new Date();
+
+ marker.bindPopup(
+   "<b>🚗 Place libre</b><br>"+
+   "Signalée il y a "+
+   timeAgo(created)
+ );
+
+ spotMarkers.push(marker);
+}
+
+
+// ======================
+// TEMPS
+// ======================
+
+function timeAgo(date){
+
+ const minutes=
+ Math.max(
+   0,
+   Math.floor(
+     (Date.now()-date.getTime())/60000
+   )
+ );
+
+ if(minutes<1){
+   return "quelques secondes";
+ }
+
+ if(minutes===1){
+   return "1 minute";
+ }
+
+ return minutes+" minutes";
+}
+
+
+// ======================
+// TEMPS RÉEL
+// ======================
+
+function subscribeSpots(){
+
+ db.channel("parking-spots-live")
+
+ .on(
+   "postgres_changes",
+   {
+     event:"INSERT",
+     schema:"public",
+     table:"parking_spots"
+   },
+   payload=>{
+     addSpotMarker(payload.new);
+   }
+ )
+
+ .on(
+   "postgres_changes",
+   {
+     event:"UPDATE",
+     schema:"public",
+     table:"parking_spots"
+   },
+   ()=>{
+     loadSpots();
+   }
+ )
+
+ .on(
+   "postgres_changes",
+   {
+     event:"DELETE",
+     schema:"public",
+     table:"parking_spots"
+   },
+   ()=>{
+     loadSpots();
+   }
+ )
+
+ .subscribe();
+}
+
+
+// ======================
+// CRÉDITS
+// ======================
+
+async function loadCredits(){
+
+ if(!currentUser){
+   return;
+ }
+
+ const {data,error}=
+ await db
+ .from("rewards")
+ .select("amount")
+ .eq("user_id",currentUser.id);
+
+ if(error){
+   console.error(error);
+   return;
+ }
+
+ const total=
+ (data||[]).reduce(
+   (sum,item)=>
+   sum+(Number(item.amount)||0),
+   0
+ );
+
+ document.getElementById("credits")
+ .textContent=total;
+}
+
+
+// ======================
+// RAFRAÎCHISSEMENT
+// ======================
+
+setInterval(()=>{
+
+ if(currentUser){
+   loadSpots();
+ }
+
+},30000);
+
+
+checkSession();
 
 </script>
 
