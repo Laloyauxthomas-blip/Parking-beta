@@ -5,117 +5,1914 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
 <title>Parking Beta</title>
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
-*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f5f7;color:#111}
-#app{height:100%;display:flex;flex-direction:column}header{background:white;padding:calc(14px + env(safe-area-inset-top)) 18px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #eee;z-index:1000}
-.logo{font-size:23px;font-weight:800}.beta{background:#eee;padding:7px 12px;border-radius:18px;font-size:12px;font-weight:800}#map{flex:1;min-height:300px}
-.bottom{background:white;padding:12px 18px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -5px 20px rgba(0,0,0,.08);z-index:1000}
-.status{text-align:center;color:#666;font-size:13px;margin-bottom:9px}button{width:100%;border:0;border-radius:16px;padding:16px;font-size:16px;font-weight:800;cursor:pointer}
-.primary{background:#111;color:white}.secondary{background:#eee;color:#111;margin-top:8px}.success{background:#e9f8ee;color:#157331;margin-top:9px}.danger{background:#fff0f0;color:#b42318;margin-top:9px}
-.reward{background:#f5f5f5;padding:10px 14px;border-radius:14px;margin-bottom:9px;display:flex;justify-content:space-between;font-weight:700}
-.overlay{position:fixed;inset:0;background:#f4f5f7;z-index:5000;display:flex;align-items:center;justify-content:center;padding:25px}.card{background:white;width:100%;max-width:420px;border-radius:24px;padding:25px;box-shadow:0 10px 35px rgba(0,0,0,.12)}
-.card h1{margin-top:0;margin-bottom:8px}.card p{color:#666;margin-top:0}input,select{width:100%;padding:15px;border:1px solid #ddd;border-radius:13px;font-size:16px;margin:7px 0;background:white}
-.hidden{display:none!important}.toast{position:fixed;top:calc(85px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:#111;color:white;padding:12px 18px;border-radius:14px;z-index:9000;font-weight:700;max-width:90%;text-align:center}
-.userbar{font-size:12px;color:#777;text-align:center;margin-top:9px}.spot-icon{width:42px;height:42px;border:4px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 3px 10px rgba(0,0,0,.35)}
-.map-tools{position:absolute;top:calc(78px + env(safe-area-inset-top));right:10px;z-index:1100;display:flex;flex-direction:column;gap:8px}.map-tool{width:48px;height:48px;padding:0;border-radius:50%;background:white;box-shadow:0 3px 14px rgba(0,0,0,.18)}
-#filterPanel{position:absolute;top:calc(78px + env(safe-area-inset-top));left:10px;right:68px;z-index:1200;background:white;padding:14px;border-radius:18px;box-shadow:0 8px 30px rgba(0,0,0,.18)}
-.filter-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.filter-chip{padding:11px 7px;border:1px solid #ddd;border-radius:12px;text-align:center;font-size:13px;font-weight:700;background:#fafafa}.filter-chip.active{background:#111;color:#fff}
-#reportScreen{position:fixed;inset:0;background:#f4f5f7;z-index:7000;overflow:auto;padding:calc(20px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom))}
-.report-header{display:flex;align-items:center;gap:15px;margin-bottom:20px}.close{width:45px;height:45px;padding:0;border-radius:50%;background:white;font-size:20px}.report-title{font-size:24px;font-weight:850}
-.report-card{background:white;padding:18px;border-radius:20px;margin-bottom:14px}.report-card h3{margin:0 0 13px;font-size:17px}.photo-box{display:block;border:2px dashed #ccc;border-radius:18px;padding:25px 15px;text-align:center;font-weight:800;cursor:pointer}
-.photo-box small{display:block;color:#777;margin-top:5px;font-weight:500}#photoPreview{width:100%;max-height:300px;object-fit:cover;border-radius:15px;margin-top:12px}.options{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.options.three{grid-template-columns:repeat(3,1fr)}
-.choice{padding:13px 7px;border:1px solid #ddd;border-radius:13px;text-align:center;font-size:14px;font-weight:700;cursor:pointer;background:#fafafa}.choice.selected{background:#111;color:white;border-color:#111}.report-info{background:#eef5ff;padding:13px;border-radius:14px;font-size:13px;color:#31547a;margin-bottom:14px}.required{color:#d00}
-#driverSheet,#navSheet,#parkedSheet{position:fixed;left:0;right:0;bottom:0;z-index:6500;background:white;border-radius:26px 26px 0 0;padding:12px 18px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.18);max-height:82vh;overflow:auto}
-.sheetHandle{width:45px;height:5px;border-radius:5px;background:#ddd;margin:0 auto 15px}.sheetTop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.sheetTitle{font-size:24px;font-weight:850}.sheetClose{width:38px;height:38px;padding:0;border-radius:50%;background:#eee;flex:0 0 38px}
-.freshness{margin-top:5px;color:#666;font-size:14px}.spotGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}.infoBox{background:#f5f5f5;padding:13px;border-radius:15px}.infoLabel{font-size:11px;color:#777;margin-bottom:4px}.infoValue{font-weight:750;font-size:14px}.distanceBox{margin-top:10px;background:#eef5ff;color:#31547a;border-radius:15px;padding:13px;font-weight:700}
-.validationBox{margin-top:16px;padding-top:15px;border-top:1px solid #eee}.validationTitle{font-weight:800;margin-bottom:4px}.validationText{color:#777;font-size:13px}.route{margin-top:16px}.smallNote{text-align:center;color:#888;font-size:11px;margin-top:10px}
-.navChoice{display:flex;align-items:center;gap:12px;margin-top:10px;text-align:left}.navIcon{font-size:25px}.park-options{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  height:100%;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:#f4f5f7;
+  color:#111
+}
+
+#app{
+  height:100%;
+  display:flex;
+  flex-direction:column
+}
+
+header{
+  background:white;
+  padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid #eee;
+  z-index:1000
+}
+
+.logo{font-size:23px;font-weight:800}
+.beta{
+  background:#eee;
+  padding:7px 12px;
+  border-radius:18px;
+  font-size:12px;
+  font-weight:800
+}
+
+#map{flex:1;min-height:300px}
+
+.bottom{
+  background:white;
+  padding:12px 18px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:0 -5px 20px rgba(0,0,0,.08);
+  z-index:1000
+}
+
+.status{
+  text-align:center;
+  color:#666;
+  font-size:13px;
+  margin-bottom:9px
+}
+
+button{
+  width:100%;
+  border:0;
+  border-radius:16px;
+  padding:16px;
+  font-size:16px;
+  font-weight:800;
+  cursor:pointer
+}
+
+.primary{background:#111;color:white}
+.secondary{background:#eee;color:#111;margin-top:8px}
+.success{background:#e9f8ee;color:#157331;margin-top:9px}
+.danger{background:#fff0f0;color:#b42318;margin-top:9px}
+
+.reward{
+  background:#f5f5f5;
+  padding:10px 14px;
+  border-radius:14px;
+  margin-bottom:9px;
+  display:flex;
+  justify-content:space-between;
+  font-weight:700
+}
+
+.overlay{
+  position:fixed;
+  inset:0;
+  background:#f4f5f7;
+  z-index:5000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:25px
+}
+
+.card{
+  background:white;
+  width:100%;
+  max-width:420px;
+  border-radius:24px;
+  padding:25px;
+  box-shadow:0 10px 35px rgba(0,0,0,.12)
+}
+
+.card h1{margin-top:0;margin-bottom:8px}
+.card p{color:#666;margin-top:0}
+
+input,select{
+  width:100%;
+  padding:15px;
+  border:1px solid #ddd;
+  border-radius:13px;
+  font-size:16px;
+  margin:7px 0;
+  background:white
+}
+
+.hidden{display:none!important}
+
+.toast{
+  position:fixed;
+  top:calc(85px + env(safe-area-inset-top));
+  left:50%;
+  transform:translateX(-50%);
+  background:#111;
+  color:white;
+  padding:12px 18px;
+  border-radius:14px;
+  z-index:9000;
+  font-weight:700;
+  max-width:90%;
+  text-align:center
+}
+
+.userbar{
+  font-size:12px;
+  color:#777;
+  text-align:center;
+  margin-top:9px
+}
+
+.spot-icon{
+  width:42px;
+  height:42px;
+  border:4px solid white;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:20px;
+  box-shadow:0 3px 10px rgba(0,0,0,.35)
+}
+
+.map-tools{
+  position:absolute;
+  top:calc(78px + env(safe-area-inset-top));
+  right:10px;
+  z-index:1100;
+  display:flex;
+  flex-direction:column;
+  gap:8px
+}
+
+.map-tool{
+  width:48px;
+  height:48px;
+  padding:0;
+  border-radius:50%;
+  background:white;
+  box-shadow:0 3px 14px rgba(0,0,0,.18)
+}
+
+#filterPanel{
+  position:absolute;
+  top:calc(78px + env(safe-area-inset-top));
+  left:10px;
+  right:68px;
+  z-index:1200;
+  background:white;
+  padding:14px;
+  border-radius:18px;
+  box-shadow:0 8px 30px rgba(0,0,0,.18)
+}
+
+.filter-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px
+}
+
+.filter-chip{
+  padding:11px 7px;
+  border:1px solid #ddd;
+  border-radius:12px;
+  text-align:center;
+  font-size:13px;
+  font-weight:700;
+  background:#fafafa
+}
+
+.filter-chip.active{
+  background:#111;
+  color:#fff
+}
+
+#reportScreen{
+  position:fixed;
+  inset:0;
+  background:#f4f5f7;
+  z-index:7000;
+  overflow:auto;
+  padding:calc(20px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom))
+}
+
+.report-header{
+  display:flex;
+  align-items:center;
+  gap:15px;
+  margin-bottom:20px
+}
+
+.close{
+  width:45px;
+  height:45px;
+  padding:0;
+  border-radius:50%;
+  background:white;
+  font-size:20px
+}
+
+.report-title{
+  font-size:24px;
+  font-weight:850
+}
+
+.report-card{
+  background:white;
+  padding:18px;
+  border-radius:20px;
+  margin-bottom:14px
+}
+
+.report-card h3{
+  margin:0 0 13px;
+  font-size:17px
+}
+
+.photo-box{
+  display:block;
+  border:2px dashed #ccc;
+  border-radius:18px;
+  padding:25px 15px;
+  text-align:center;
+  font-weight:800;
+  cursor:pointer
+}
+
+.photo-box small{
+  display:block;
+  color:#777;
+  margin-top:5px;
+  font-weight:500
+}
+
+#photoPreview{
+  width:100%;
+  max-height:300px;
+  object-fit:cover;
+  border-radius:15px;
+  margin-top:12px
+}
+
+.options{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:8px
+}
+
+.options.three{
+  grid-template-columns:repeat(3,1fr)
+}
+
+.choice{
+  padding:13px 7px;
+  border:1px solid #ddd;
+  border-radius:13px;
+  text-align:center;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+  background:#fafafa
+}
+
+.choice.selected{
+  background:#111;
+  color:white;
+  border-color:#111
+}
+
+.report-info{
+  background:#eef5ff;
+  padding:13px;
+  border-radius:14px;
+  font-size:13px;
+  color:#31547a;
+  margin-bottom:14px
+}
+
+.required{color:#d00}
+
+#driverSheet,#navSheet,#parkedSheet{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:6500;
+  background:white;
+  border-radius:26px 26px 0 0;
+  padding:12px 18px calc(20px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 30px rgba(0,0,0,.18);
+  max-height:82vh;
+  overflow:auto
+}
+
+.sheetHandle{
+  width:45px;
+  height:5px;
+  border-radius:5px;
+  background:#ddd;
+  margin:0 auto 15px
+}
+
+.sheetTop{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px
+}
+
+.sheetTitle{
+  font-size:24px;
+  font-weight:850
+}
+
+.sheetClose{
+  width:38px;
+  height:38px;
+  padding:0;
+  border-radius:50%;
+  background:#eee;
+  flex:0 0 38px
+}
+
+.freshness{
+  margin-top:5px;
+  color:#666;
+  font-size:14px
+}
+
+.spotGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+  margin-top:16px
+}
+
+.infoBox{
+  background:#f5f5f5;
+  padding:13px;
+  border-radius:15px
+}
+
+.infoLabel{
+  font-size:11px;
+  color:#777;
+  margin-bottom:4px
+}
+
+.infoValue{
+  font-weight:750;
+  font-size:14px
+}
+
+.distanceBox{
+  margin-top:10px;
+  background:#eef5ff;
+  color:#31547a;
+  border-radius:15px;
+  padding:13px;
+  font-weight:700
+}
+
+.validationBox{
+  margin-top:16px;
+  padding-top:15px;
+  border-top:1px solid #eee
+}
+
+.validationTitle{
+  font-weight:800;
+  margin-bottom:4px
+}
+
+.validationText{
+  color:#777;
+  font-size:13px
+}
+
+.route{margin-top:16px}
+
+.smallNote{
+  text-align:center;
+  color:#888;
+  font-size:11px;
+  margin-top:10px
+}
+
+.navChoice{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-top:10px;
+  text-align:left
+}
+
+.navIcon{font-size:25px}
+
+.park-options{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:8px;
+  margin-top:12px
+}
 </style>
 </head>
+
 <body>
-<div id="authScreen" class="overlay"><div class="card"><h1>ð¿ï¸ Parking Beta</h1><p>Connecte-toi pour voir et signaler les places libres.</p><input id="email" type="email" placeholder="Adresse e-mail"><input id="password" type="password" placeholder="Mot de passe"><button class="primary" onclick="login()">Se connecter</button><button class="secondary" onclick="signup()">CrÃ©er un compte</button></div></div>
+
+<div id="authScreen" class="overlay">
+  <div class="card">
+    <h1>🅿️ Parking Beta</h1>
+    <p>Connecte-toi pour voir et signaler les places libres.</p>
+
+    <input id="email" type="email" placeholder="Adresse e-mail">
+    <input id="password" type="password" placeholder="Mot de passe">
+
+    <button class="primary" onclick="login()">Se connecter</button>
+    <button class="secondary" onclick="signup()">Créer un compte</button>
+  </div>
+</div>
+
 <div id="app">
-<header><div class="logo">ð¿ï¸ Parking Beta</div><div class="beta">BETA</div></header>
+
+<header>
+  <div class="logo">🅿️ Parking Beta</div>
+  <div class="beta">BETA</div>
+</header>
+
 <div id="map"></div>
-<div class="map-tools"><button class="map-tool" onclick="toggleFilters()">âï¸</button><button class="map-tool" onclick="searchThisArea()">ð</button></div>
-<div id="filterPanel" class="hidden"><b>Filtres de la carte</b><div class="filter-grid" style="margin-top:10px">
-<div class="filter-chip active" onclick="setFilter('all',this)">Toutes</div><div class="filter-chip" onclick="setFilter('free',this)">ð³ Gratuites</div>
-<div class="filter-chip" onclick="setFilter('paid',this)">ð¶ Payantes</div><div class="filter-chip" onclick="setFilter('disabled',this)">â¿ PMR</div>
-<div class="filter-chip" onclick="setFilter('electric',this)">â¡ Ãlectriques</div><div class="filter-chip" onclick="setFilter('standard',this)">ð Standard+</div></div>
-<select id="radiusSelect" onchange="searchThisArea()"><option value="250">Rayon : 250 m</option><option value="500" selected>Rayon : 500 m</option><option value="1000">Rayon : 1 km</option><option value="2000">Rayon : 2 km</option></select></div>
-<div class="bottom"><div class="reward"><span>ð° Mes crÃ©dits</span><span id="credits">0</span></div><div id="status" class="status">ð Recherche de ta positionâ¦</div>
-<button class="primary" onclick="openReport()">ð¸ Signaler une place libre</button><button class="secondary" onclick="centerUser()">ð¯ Recentrer sur moi</button>
-<div class="userbar"><span id="userEmail"></span> Â· <span onclick="logout()" style="text-decoration:underline">DÃ©connexion</span></div></div></div>
 
-<div id="driverSheet" class="hidden"><div class="sheetHandle"></div><div class="sheetTop"><div><div class="sheetTitle">ð Place disponible</div><div id="driverFreshness" class="freshness"></div></div><button class="sheetClose" onclick="closeDriverSheet()">â</button></div>
-<div class="spotGrid"><div class="infoBox"><div class="infoLabel">STATIONNEMENT</div><div id="driverPrice" class="infoValue">â</div></div><div class="infoBox"><div class="infoLabel">TAILLE</div><div id="driverSize" class="infoValue">â</div></div><div class="infoBox"><div class="infoLabel">EMPLACEMENT</div><div id="driverType" class="infoValue">â</div></div><div class="infoBox"><div class="infoLabel">FIABILITÃ</div><div id="driverConfirmations" class="infoValue">â</div></div></div>
-<div id="driverDistance" class="distanceBox"></div><button class="primary route" onclick="openNavigationSheet()">ð§­ M'y rendre</button><button class="secondary" onclick="openParkedSheet()">ð Je me suis garÃ© ici</button>
-<div class="validationBox"><div class="validationTitle">Tu es prÃ¨s de cette place ?</div><div class="validationText">Aide les autres conducteurs Ã  garder la carte Ã  jour.</div><button class="success" onclick="confirmSpotAvailable()">â Toujours libre</button><button class="danger" onclick="reportSpotOccupied()">â Place occupÃ©e</button></div></div>
+<div class="map-tools">
+  <button class="map-tool" onclick="toggleFilters()">⚙️</button>
+  <button class="map-tool" onclick="searchThisArea()">🔎</button>
+</div>
 
-<div id="navSheet" class="hidden"><div class="sheetHandle"></div><div class="sheetTop"><div class="sheetTitle">Choisir lâitinÃ©raire</div><button class="sheetClose" onclick="closeNavSheet()">â</button></div>
-<button class="secondary navChoice" onclick="navigateWith('apple')"><span class="navIcon">ðºï¸</span> Plans</button><button class="secondary navChoice" onclick="navigateWith('google')"><span class="navIcon">ð</span> Google Maps</button><button class="secondary navChoice" onclick="navigateWith('waze')"><span class="navIcon">ð</span> Waze</button></div>
+<div id="filterPanel" class="hidden">
 
-<div id="parkedSheet" class="hidden"><div class="sheetHandle"></div><div class="sheetTop"><div><div class="sheetTitle">ð GarÃ© ici</div><div class="freshness">Combien de temps penses-tu rester ?</div></div><button class="sheetClose" onclick="closeParkedSheet()">â</button></div>
-<div class="park-options"><button class="secondary" onclick="saveParkingDuration(15)">15 min</button><button class="secondary" onclick="saveParkingDuration(30)">30 min</button><button class="secondary" onclick="saveParkingDuration(60)">1 h</button><button class="secondary" onclick="saveParkingDuration(120)">2 h</button></div><button class="secondary" onclick="saveParkingDuration(null)">Je ne sais pas</button></div>
+  <b>Filtres de la carte</b>
 
-<div id="reportScreen" class="hidden"><div class="report-header"><button class="close" onclick="closeReport()">â</button><div><div class="report-title">Signaler une place</div><div style="color:#777;font-size:13px">Environ 10 secondes</div></div></div>
-<div class="report-info">ð Ta position GPS et l'heure du signalement seront enregistrÃ©es automatiquement. La photo sert Ã  la vÃ©rification et ne doit pas servir Ã  identifier des personnes.</div>
-<div class="report-card"><h3>ð¸ Photo de la place <span class="required">*</span></h3><label class="photo-box">ð· Prendre une photo<small>Cadre surtout la place, Ã©vite les personnes et plaques si possible</small><input id="spotPhoto" type="file" accept="image/*" capture="environment" class="hidden" onchange="previewPhoto(event)"></label><img id="photoPreview" class="hidden"></div>
-<div class="report-card"><h3>ð¿ï¸ OÃ¹ est la place ?</h3><div class="options"><div class="choice" data-group="parking_type" data-value="street">ð£ï¸ Rue</div><div class="choice" data-group="parking_type" data-value="parking">ð¿ï¸ Parking public</div></div></div>
-<div class="report-card"><h3>ð³ Stationnement</h3><div class="options three"><div class="choice" data-group="price_type" data-value="free">Gratuit</div><div class="choice" data-group="price_type" data-value="paid">Payant</div><div class="choice" data-group="price_type" data-value="unknown">Je ne sais pas</div></div></div>
-<div class="report-card"><h3>â¿ Place rÃ©servÃ©e ?</h3><div class="options"><div class="choice" data-group="reserved" data-value="none">Non</div><div class="choice" data-group="reserved" data-value="disabled">â¿ PMR</div><div class="choice" data-group="reserved" data-value="delivery">ð¦ Livraison</div><div class="choice" data-group="reserved" data-value="electric">â¡ Ãlectrique</div></div></div>
-<div class="report-card"><h3>ð Taille de la place</h3><div class="options three"><div class="choice" data-group="vehicle_size" data-value="small">Petite</div><div class="choice" data-group="vehicle_size" data-value="standard">Standard</div><div class="choice" data-group="vehicle_size" data-value="large">Grande</div></div></div>
-<div class="report-card"><h3>ð£ï¸ Marquage au sol ?</h3><div class="options three"><div class="choice" data-group="marking" data-value="yes">Oui</div><div class="choice" data-group="marking" data-value="no">Non</div><div class="choice" data-group="marking" data-value="unknown">Pas sÃ»r</div></div></div>
-<div class="report-card"><h3>â ï¸ Restriction visible ?</h3><div class="options three"><div class="choice" data-group="restriction" data-value="no">Non</div><div class="choice" data-group="restriction" data-value="yes">Oui</div><div class="choice" data-group="restriction" data-value="unknown">Pas sÃ»r</div></div></div>
-<div class="report-card"><h3>ð§ ParticularitÃ© gÃªnante ?</h3><div style="color:#777;font-size:13px;margin-bottom:12px">Garage, portail, travaux, borne ou obstacle.</div><div class="options three"><div class="choice" data-group="obstacle" data-value="no">Non</div><div class="choice" data-group="obstacle" data-value="yes">Oui</div><div class="choice" data-group="obstacle" data-value="unknown">Pas sÃ»r</div></div></div>
-<button id="publishButton" class="primary" onclick="publishSpot()">â Publier la place</button><button class="secondary" onclick="closeReport()">Annuler</button></div>
+  <div class="filter-grid" style="margin-top:10px">
+
+    <div class="filter-chip active" data-filter="all" onclick="setFilter('all',this)">
+      Toutes
+    </div>
+
+    <div class="filter-chip" data-filter="free" onclick="setFilter('free',this)">
+      💳 Gratuites
+    </div>
+
+    <div class="filter-chip" data-filter="paid" onclick="setFilter('paid',this)">
+      💶 Payantes
+    </div>
+
+    <div class="filter-chip" data-filter="disabled" onclick="setFilter('disabled',this)">
+      ♿ PMR
+    </div>
+
+    <div class="filter-chip" data-filter="electric" onclick="setFilter('electric',this)">
+      ⚡ Électriques
+    </div>
+
+    <div class="filter-chip" data-filter="standard" onclick="setFilter('standard',this)">
+      🚗 Standard+
+    </div>
+
+  </div>
+
+  <select id="radiusSelect" onchange="searchThisArea()">
+    <option value="250">Rayon : 250 m</option>
+    <option value="500" selected>Rayon : 500 m</option>
+    <option value="1000">Rayon : 1 km</option>
+    <option value="2000">Rayon : 2 km</option>
+  </select>
+
+</div>
+
+<div class="bottom">
+
+  <div class="reward">
+    <span>💰 Mes crédits</span>
+    <span id="credits">0</span>
+  </div>
+
+  <div id="status" class="status">
+    📍 Recherche de ta position…
+  </div>
+
+  <button id="reportButton" class="primary" onclick="openReport()">
+    📸 Signaler une place libre
+  </button>
+
+  <button class="secondary" onclick="centerUser()">
+    🎯 Recentrer sur moi
+  </button>
+
+  <div class="userbar">
+    <span id="userEmail"></span> ·
+    <span onclick="logout()" style="text-decoration:underline">
+      Déconnexion
+    </span>
+  </div>
+
+</div>
+</div>
+
+<div id="driverSheet" class="hidden">
+
+  <div class="sheetHandle"></div>
+
+  <div class="sheetTop">
+    <div>
+      <div class="sheetTitle">🚗 Place disponible</div>
+      <div id="driverFreshness" class="freshness">
+        Signalée récemment
+      </div>
+    </div>
+
+    <button class="sheetClose" onclick="closeDriverSheet()">✕</button>
+  </div>
+
+  <div class="spotGrid">
+
+    <div class="infoBox">
+      <div class="infoLabel">STATIONNEMENT</div>
+      <div id="driverPrice" class="infoValue">—</div>
+    </div>
+
+    <div class="infoBox">
+      <div class="infoLabel">TAILLE</div>
+      <div id="driverSize" class="infoValue">—</div>
+    </div>
+
+    <div class="infoBox">
+      <div class="infoLabel">EMPLACEMENT</div>
+      <div id="driverType" class="infoValue">—</div>
+    </div>
+
+    <div class="infoBox">
+      <div class="infoLabel">FIABILITÉ</div>
+      <div id="driverConfirmations" class="infoValue">—</div>
+    </div>
+
+  </div>
+
+  <div id="driverDistance" class="distanceBox">
+    📍 Calcul de la distance…
+  </div>
+
+  <button class="primary route" onclick="openNavigationSheet()">
+    🧭 M'y rendre
+  </button>
+
+  <button class="secondary" onclick="openParkedSheet()">
+    🚘 Je me suis garé ici
+  </button>
+
+  <div class="validationBox">
+
+    <div class="validationTitle">
+      Tu es près de cette place ?
+    </div>
+
+    <div class="validationText">
+      Aide les autres conducteurs à garder la carte à jour.
+    </div>
+
+    <button class="success" onclick="confirmSpotAvailable()">
+      ✅ Toujours libre
+    </button>
+
+    <button class="danger" onclick="reportSpotOccupied()">
+      ❌ Place occupée
+    </button>
+
+  </div>
+
+  <div class="smallNote">
+    Les confirmations sont limitées par utilisateur et par place.
+  </div>
+
+</div>
+
+<div id="navSheet" class="hidden">
+
+  <div class="sheetHandle"></div>
+
+  <div class="sheetTop">
+    <div class="sheetTitle">Choisir l’itinéraire</div>
+    <button class="sheetClose" onclick="closeNavSheet()">✕</button>
+  </div>
+
+  <button class="secondary navChoice" onclick="navigateWith('apple')">
+    <span class="navIcon">🗺️</span> Plans
+  </button>
+
+  <button class="secondary navChoice" onclick="navigateWith('google')">
+    <span class="navIcon">📍</span> Google Maps
+  </button>
+
+  <button class="secondary navChoice" onclick="navigateWith('waze')">
+    <span class="navIcon">🚙</span> Waze
+  </button>
+
+</div>
+
+<div id="parkedSheet" class="hidden">
+
+  <div class="sheetHandle"></div>
+
+  <div class="sheetTop">
+
+    <div>
+      <div class="sheetTitle">🚘 Garé ici</div>
+      <div class="freshness">
+        Combien de temps penses-tu rester ?
+      </div>
+    </div>
+
+    <button class="sheetClose" onclick="closeParkedSheet()">✕</button>
+
+  </div>
+
+  <div class="park-options">
+
+    <button class="secondary" onclick="saveParkingDuration(15)">
+      15 min
+    </button>
+
+    <button class="secondary" onclick="saveParkingDuration(30)">
+      30 min
+    </button>
+
+    <button class="secondary" onclick="saveParkingDuration(60)">
+      1 h
+    </button>
+
+    <button class="secondary" onclick="saveParkingDuration(120)">
+      2 h
+    </button>
+
+  </div>
+
+  <button class="secondary" onclick="saveParkingDuration(null)">
+    Je ne sais pas
+  </button>
+
+</div>
+
+<div id="reportScreen" class="hidden">
+
+  <div class="report-header">
+
+    <button class="close" onclick="closeReport()">✕</button>
+
+    <div>
+      <div class="report-title">Signaler une place</div>
+      <div style="color:#777;font-size:13px">
+        Environ 10 secondes
+      </div>
+    </div>
+
+  </div>
+
+  <div class="report-info">
+    📍 Ta position GPS et l'heure du signalement seront enregistrées automatiquement.
+    La photo sert à la vérification et ne doit pas servir à identifier des personnes.
+  </div>
+
+  <div class="report-card">
+
+    <h3>
+      📸 Photo de la place <span class="required">*</span>
+    </h3>
+
+    <label class="photo-box">
+
+      📷 Prendre une photo
+
+      <small>
+        Cadre surtout la place, évite les personnes et plaques si possible
+      </small>
+
+      <input
+        id="spotPhoto"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        class="hidden"
+        onchange="previewPhoto(event)"
+      >
+
+    </label>
+
+    <img id="photoPreview" class="hidden">
+
+  </div>
+
+  <div class="report-card">
+
+    <h3>🅿️ Où est la place ?</h3>
+
+    <div class="options">
+
+      <div class="choice" data-group="parking_type" data-value="street">
+        🛣️ Rue
+      </div>
+
+      <div class="choice" data-group="parking_type" data-value="parking">
+        🅿️ Parking public
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="report-card">
+
+    <h3>💳 Stationnement</h3>
+
+    <div class="options three">
+
+      <div class="choice" data-group="price_type" data-value="free">
+        Gratuit
+      </div>
+
+      <div class="choice" data-group="price_type" data-value="paid">
+        Payant
+      </div>
+
+      <div class="choice" data-group="price_type" data-value="unknown">
+        Je ne sais pas
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="report-card">
+
+    <h3>♿ Place réservée ?</h3>
+
+    <div class="options">
+
+      <div class="choice" data-group="reserved" data-value="none">
+        Non
+      </div>
+
+      <div class="choice" data-group="reserved" data-value="disabled">
+        ♿ PMR
+      </div>
+
+      <div class="choice" data-group="reserved" data-value="delivery">
+        📦 Livraison
+      </div>
+
+      <div class="choice" data-group="reserved" data-value="electric">
+        ⚡ Électrique
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="report-card">
+
+    <h3>🚗 Taille de la place</h3>
+
+    <div class="options three">
+
+      <div class="choice" data-group="vehicle_size" data-value="small">
+        Petite
+      </div>
+
+      <div class="choice" data-group="vehicle_size" data-value="standard">
+        Standard
+      </div>
+
+      <div class="choice" data-group="vehicle_size" data-value="large">
+        Grande
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="report-card">
+
+    <h3>🛣️ Marquage au sol ?</h3>
+
+    <div class="options three">
+
+      <div class="choice" data-group="marking" data-value="yes">
+        Oui
+      </div>
+
+      <div class="choice" data-group="marking" data-value="no">
+        Non
+      </div>
+
+      <div class="choice" data-group="marking" data-value="unknown">
+        Pas sûr
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="report-card">
+
+    <h3>⚠️ Restriction visible ?</h3>
+
+    <div class="options three">
+
+      <div class="choice" data-group="restriction" data-value="no">
+        Non
+      </div>
+
+      <div class="choice" data-group="restriction" data-value="yes">
+        Oui
+      </div>
+
+      <div class="choice" data-group="restriction" data-value="unknown">
+        Pas sûr
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="report-card">
+
+    <h3>🚧 Particularité gênante ?</h3>
+
+    <div style="color:#777;font-size:13px;margin-bottom:12px">
+      Garage, portail, travaux, borne ou obstacle.
+    </div>
+
+    <div class="options three">
+
+      <div class="choice" data-group="obstacle" data-value="no">
+        Non
+      </div>
+
+      <div class="choice" data-group="obstacle" data-value="yes">
+        Oui
+      </div>
+
+      <div class="choice" data-group="obstacle" data-value="unknown">
+        Pas sûr
+      </div>
+
+    </div>
+
+  </div>
+
+  <button id="publishButton" class="primary" onclick="publishSpot()">
+    ✅ Publier la place
+  </button>
+
+  <button class="secondary" onclick="closeReport()">
+    Annuler
+  </button>
+
+</div>
 
 <script>
 const SUPABASE_URL="https://dshghozfyxlbekbxqeac.supabase.co";
 const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzaGdob3pmeXhsYmVrYnhxZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4NTc0ODYsImV4cCI6MjEwNTQzMzQ4Nn0.X49lm14IC3lP_1dCucqDSa5Gmu4-s4ApLK-7UcNwZ0U";
+
 const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let currentUser=null,userPosition=null,userMarker=null,spotMarkers=[],allSpots=[],reportData={},selectedPhoto=null,selectedSpot=null,currentFilter="all",spotsChannel=null;
+
+let currentUser=null;
+let userPosition=null;
+let userMarker=null;
+let spotMarkers=[];
+let allSpots=[];
+let reportData={};
+let selectedPhoto=null;
+let selectedSpot=null;
+let currentFilter="all";
+let spotsChannel=null;
+
 const map=L.map("map").setView([50.548,3.027],15);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"Â© OpenStreetMap"}).addTo(map);
-function toast(m){const d=document.createElement("div");d.className="toast";d.textContent=m;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
-async function login(){const email=document.getElementById("email").value.trim(),password=document.getElementById("password").value;if(!email||!password)return toast("Entre ton e-mail et ton mot de passe.");const{error}=await db.auth.signInWithPassword({email,password});if(error)toast(error.message)}
-async function signup(){const email=document.getElementById("email").value.trim(),password=document.getElementById("password").value;if(!email||password.length<6)return toast("Mot de passe : minimum 6 caractÃ¨res.");const{error}=await db.auth.signUp({email,password});if(error)return toast(error.message);toast("Compte crÃ©Ã© â VÃ©rifie ton e-mail si demandÃ©.")}
-async function logout(){await db.auth.signOut();location.reload()}
-async function checkSession(){const{data:{session}}=await db.auth.getSession();if(session)startApp(session.user);db.auth.onAuthStateChange((e,s)=>{if(s)startApp(s.user)})}
-async function startApp(user){if(currentUser&&currentUser.id===user.id)return;currentUser=user;document.getElementById("authScreen").classList.add("hidden");document.getElementById("userEmail").textContent=user.email||"";startLocation();await loadSpots();await loadCredits();subscribeSpots()}
-function startLocation(){navigator.geolocation.watchPosition(p=>{userPosition={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy};document.getElementById("status").textContent="ð Position trouvÃ©e Â· prÃ©cision â "+Math.round(userPosition.accuracy)+" m";if(!userMarker){userMarker=L.circleMarker([userPosition.lat,userPosition.lng],{radius:9,color:"#fff",weight:4,fillColor:"#007aff",fillOpacity:1}).addTo(map);map.setView([userPosition.lat,userPosition.lng],17)}else userMarker.setLatLng([userPosition.lat,userPosition.lng]);if(selectedSpot)updateDriverDistance()},()=>document.getElementById("status").textContent="â ï¸ Autorise la localisation dans Safari",{enableHighAccuracy:true,maximumAge:5000,timeout:15000})}
-function centerUser(){if(!userPosition)return toast("Position pas encore trouvÃ©e.");map.setView([userPosition.lat,userPosition.lng],18)}
-function toggleFilters(){document.getElementById("filterPanel").classList.toggle("hidden")}
-function setFilter(f,el){currentFilter=f;document.querySelectorAll(".filter-chip").forEach(x=>x.classList.remove("active"));el.classList.add("active");renderSpots()}
-function matchesFilter(s){if(currentFilter==="all")return true;if(currentFilter==="free"||currentFilter==="paid")return s.price_type===currentFilter;if(currentFilter==="disabled"||currentFilter==="electric")return s.reserved_type===currentFilter;if(currentFilter==="standard")return ["standard","large"].includes(s.vehicle_size);return true}
-function searchThisArea(){const r=Number(document.getElementById("radiusSelect").value||500),c=map.getCenter();const a=allSpots.filter(s=>distanceMeters(c.lat,c.lng,+s.latitude,+s.longitude)<=r&&matchesFilter(s));renderSpots(a);toast("ð "+a.length+" place"+(a.length>1?"s":"")+" dans "+(r>=1000?r/1000+" km":r+" m"))}
-function openReport(){closeDriverSheet();if(!userPosition)return toast("Attends que ta position soit trouvÃ©e.");document.getElementById("reportScreen").classList.remove("hidden")}
-function closeReport(){document.getElementById("reportScreen").classList.add("hidden")}
-function previewPhoto(e){const f=e.target.files[0];if(!f)return;selectedPhoto=f;const p=document.getElementById("photoPreview");p.src=URL.createObjectURL(f);p.classList.remove("hidden")}
-document.addEventListener("click",e=>{const c=e.target.closest(".choice");if(!c)return;const g=c.dataset.group;document.querySelectorAll(`.choice[data-group="${g}"]`).forEach(i=>i.classList.remove("selected"));c.classList.add("selected");reportData[g]=c.dataset.value});
-async function publishSpot(){if(!selectedPhoto)return toast("ð¸ Prends d'abord une photo.");const req=["parking_type","price_type","reserved","vehicle_size","marking","restriction","obstacle"];if(req.some(k=>!reportData[k]))return toast("RÃ©ponds Ã  toutes les questions.");const payload={latitude:userPosition.lat,longitude:userPosition.lng,accuracy:userPosition.accuracy,reported_by:currentUser.id,status:"available",parking_type:reportData.parking_type,price_type:reportData.price_type,marking:reportData.marking,restriction_visible:reportData.restriction==="yes"?true:reportData.restriction==="no"?false:null,vehicle_size:reportData.vehicle_size,ai_status:"pending",occupied_reports:0,confirmed_reports:0,reserved_type:reportData.reserved};const{error}=await db.from("parking_spots").insert(payload);if(error)return toast("Erreur : "+error.message);closeReport();resetReport();toast("ð Place publiÃ©e !");await loadSpots()}
-function resetReport(){reportData={};selectedPhoto=null;document.querySelectorAll(".choice").forEach(i=>i.classList.remove("selected"));document.getElementById("spotPhoto").value="";document.getElementById("photoPreview").classList.add("hidden")}
-async function loadSpots(){const{data,error}=await db.from("parking_spots").select("*").eq("status","available").order("created_at",{ascending:false});if(error)return console.error(error);allSpots=data||[];renderSpots()}
-function renderSpots(custom=null){spotMarkers.forEach(m=>map.removeLayer(m));spotMarkers=[];(custom||allSpots.filter(matchesFilter)).forEach(addSpotMarker)}
-function addSpotMarker(s){if(s.latitude==null||s.longitude==null)return;const r=s.reserved_type;let emoji="P",bg="#111";if(r==="disabled"){emoji="â¿";bg="#246bfd"}else if(r==="electric"){emoji="â¡";bg="#18a558"}else if(r==="delivery"){emoji="ð¦";bg="#f59e0b"}else if(s.price_type==="paid"){emoji="â¬";bg="#7c3aed"}const icon=L.divIcon({className:"",html:`<div class="spot-icon" style="background:${bg};color:white">${emoji}</div>`,iconSize:[42,42],iconAnchor:[21,21]});const m=L.marker([s.latitude,s.longitude],{icon}).addTo(map);m.on("click",()=>openDriverSheet(s));spotMarkers.push(m)}
-function openDriverSheet(s){selectedSpot=s;document.getElementById("driverFreshness").textContent="SignalÃ©e il y a "+timeAgo(new Date(s.created_at));document.getElementById("driverPrice").textContent=s.price_type==="free"?"ð³ Gratuit":s.price_type==="paid"?"ð¶ Payant":"â Non prÃ©cisÃ©";document.getElementById("driverSize").textContent=s.vehicle_size==="small"?"ð Petite":s.vehicle_size==="large"?"ð Grande":"ð Standard";document.getElementById("driverType").textContent=s.parking_type==="street"?"ð£ï¸ Rue":"ð¿ï¸ Parking";document.getElementById("driverConfirmations").textContent=(Number(s.confirmed_reports)||0)+" confirmation(s)";updateDriverDistance();document.getElementById("driverSheet").classList.remove("hidden")}
-function closeDriverSheet(){document.getElementById("driverSheet").classList.add("hidden");selectedSpot=null}
-function distanceMeters(a,b,c,d){const R=6371000,r=x=>x*Math.PI/180,dl=r(c-a),dn=r(d-b),x=Math.sin(dl/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(dn/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
-function updateDriverDistance(){if(!selectedSpot||!userPosition)return;const d=distanceMeters(userPosition.lat,userPosition.lng,+selectedSpot.latitude,+selectedSpot.longitude);document.getElementById("driverDistance").textContent=d<1000?"ð Ã environ "+Math.round(d)+" m de toi":"ð Ã environ "+(d/1000).toFixed(1)+" km de toi"}
-function openNavigationSheet(){if(selectedSpot)document.getElementById("navSheet").classList.remove("hidden")}function closeNavSheet(){document.getElementById("navSheet").classList.add("hidden")}
-function navigateWith(app){if(!selectedSpot)return;const lat=+selectedSpot.latitude,lng=+selectedSpot.longitude;let u=app==="apple"?`https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`:app==="google"?`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`:`https://waze.com/ul?ll=${lat}%2C${lng}&navigate=yes`;location.href=u}
-function nearSelected(max=120){return userPosition&&selectedSpot&&distanceMeters(userPosition.lat,userPosition.lng,+selectedSpot.latitude,+selectedSpot.longitude)<=max}
-async function confirmSpotAvailable(){if(!nearSelected())return toast("ð Approche-toi de la place.");const n=(Number(selectedSpot.confirmed_reports)||0)+1;await db.from("parking_spots").update({confirmed_reports:n}).eq("id",selectedSpot.id);toast("â Place confirmÃ©e !");closeDriverSheet();loadSpots()}
-async function reportSpotOccupied(){if(!nearSelected())return toast("ð Approche-toi de la place.");await db.from("parking_spots").update({status:"occupied"}).eq("id",selectedSpot.id);toast("ð Place retirÃ©e de la carte.");closeDriverSheet();loadSpots()}
-function openParkedSheet(){if(!nearSelected(150))return toast("ð Tu dois Ãªtre prÃ¨s de la place.");document.getElementById("parkedSheet").classList.remove("hidden")}function closeParkedSheet(){document.getElementById("parkedSheet").classList.add("hidden")}
-async function saveParkingDuration(minutes){const leave=minutes?new Date(Date.now()+minutes*60000).toISOString():null;const{error}=await db.from("parking_sessions").insert({user_id:currentUser.id,spot_id:selectedSpot.id,expected_leave_at:leave});if(error)return toast("Impossible d'enregistrer.");await db.from("parking_spots").update({status:"occupied"}).eq("id",selectedSpot.id);toast("ð Stationnement enregistrÃ©.");closeParkedSheet();closeDriverSheet();loadSpots()}
-function timeAgo(date){const sec=Math.max(0,Math.floor((Date.now()-date.getTime())/1000));if(sec<60)return"quelques secondes";const m=Math.floor(sec/60);if(m<60)return m+" minute"+(m>1?"s":"");const h=Math.floor(m/60);return h+" heure"+(h>1?"s":"")}
-function subscribeSpots(){if(spotsChannel)return;spotsChannel=db.channel("parking-spots-live").on("postgres_changes",{event:"*",schema:"public",table:"parking_spots"},()=>loadSpots()).subscribe()}
-async function loadCredits(){const{data}=await db.from("rewards").select("amount").eq("user_id",currentUser.id);document.getElementById("credits").textContent=(data||[]).reduce((s,i)=>s+(Number(i.amount)||0),0)}
-setInterval(()=>{if(currentUser)loadSpots()},30000);checkSession();
+
+L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom:19,
+    attribution:"© OpenStreetMap"
+  }
+).addTo(map);
+
+function toast(m){
+  const d=document.createElement("div");
+  d.className="toast";
+  d.textContent=m;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),2600);
+}
+
+async function login(){
+
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value;
+
+  if(!email||!password){
+    return toast("Entre ton e-mail et ton mot de passe.");
+  }
+
+  const {error}=await db.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if(error) toast(error.message);
+}
+
+async function signup(){
+
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value;
+
+  if(!email||password.length<6){
+    return toast("Mot de passe : minimum 6 caractères.");
+  }
+
+  const {data,error}=await db.auth.signUp({
+    email,
+    password
+  });
+
+  if(error) return toast(error.message);
+
+  if(data.user){
+    toast("Compte créé ✅ Vérifie ton e-mail si demandé.");
+  }
+}
+
+async function logout(){
+  await db.auth.signOut();
+  location.reload();
+}
+
+async function checkSession(){
+
+  const {
+    data:{session}
+  }=await db.auth.getSession();
+
+  if(session){
+    startApp(session.user);
+  }
+
+  db.auth.onAuthStateChange((event,session)=>{
+    if(session){
+      startApp(session.user);
+    }
+  });
+}
+
+async function startApp(user){
+
+  if(currentUser&&currentUser.id===user.id) return;
+
+  currentUser=user;
+
+  document.getElementById("authScreen").classList.add("hidden");
+
+  document.getElementById("userEmail").textContent=user.email||"";
+
+  await createProfile();
+
+  startLocation();
+
+  await loadSpots();
+  await loadCredits();
+
+  subscribeSpots();
+}
+
+async function createProfile(){
+
+  await db.from("profiles").upsert({
+    id:currentUser.id,
+    pseudo:currentUser.email
+      ? currentUser.email.split("@")[0]
+      : "Utilisateur"
+  });
+}
+
+function startLocation(){
+
+  if(!navigator.geolocation){
+
+    document.getElementById("status").textContent=
+      "❌ Géolocalisation indisponible";
+
+    return;
+  }
+
+  navigator.geolocation.watchPosition(
+
+    position=>{
+
+      userPosition={
+        lat:position.coords.latitude,
+        lng:position.coords.longitude,
+        accuracy:position.coords.accuracy
+      };
+
+      document.getElementById("status").textContent=
+        "📍 Position trouvée · précision ≈ "+
+        Math.round(userPosition.accuracy)+" m";
+
+      if(!userMarker){
+
+        userMarker=L.circleMarker(
+          [userPosition.lat,userPosition.lng],
+          {
+            radius:9,
+            color:"#fff",
+            weight:4,
+            fillColor:"#007aff",
+            fillOpacity:1
+          }
+        ).addTo(map);
+
+        map.setView(
+          [userPosition.lat,userPosition.lng],
+          17
+        );
+
+      }else{
+
+        userMarker.setLatLng([
+          userPosition.lat,
+          userPosition.lng
+        ]);
+      }
+
+      if(selectedSpot){
+        updateDriverDistance();
+      }
+    },
+
+    ()=>{
+      document.getElementById("status").textContent=
+        "⚠️ Autorise la localisation dans Safari";
+    },
+
+    {
+      enableHighAccuracy:true,
+      maximumAge:5000,
+      timeout:15000
+    }
+  );
+}
+
+function centerUser(){
+
+  if(!userPosition){
+    return toast("Position pas encore trouvée.");
+  }
+
+  map.setView(
+    [userPosition.lat,userPosition.lng],
+    18
+  );
+}
+
+function toggleFilters(){
+  document.getElementById("filterPanel")
+    .classList.toggle("hidden");
+}
+
+function setFilter(filter,element){
+
+  currentFilter=filter;
+
+  document.querySelectorAll(".filter-chip")
+    .forEach(item=>item.classList.remove("active"));
+
+  element.classList.add("active");
+
+  renderSpots();
+}
+
+function searchThisArea(){
+
+  const radius=
+    Number(document.getElementById("radiusSelect").value||500);
+
+  const center=map.getCenter();
+
+  const matches=allSpots.filter(spot=>
+    distanceMeters(
+      center.lat,
+      center.lng,
+      +spot.latitude,
+      +spot.longitude
+    )<=radius
+    &&
+    matchesFilter(spot)
+  );
+
+  renderSpots(matches);
+
+  toast(
+    "🔎 "+
+    matches.length+
+    " place"+
+    (matches.length>1?"s":"")+
+    " dans "+
+    (radius>=1000
+      ? (radius/1000)+" km"
+      : radius+" m")
+  );
+}
+
+function matchesFilter(spot){
+
+  if(currentFilter==="all") return true;
+
+  if(
+    currentFilter==="free" ||
+    currentFilter==="paid"
+  ){
+    return spot.price_type===currentFilter;
+  }
+
+  if(
+    currentFilter==="disabled" ||
+    currentFilter==="electric"
+  ){
+    return (
+      spot.reserved_type===currentFilter ||
+      spot.reserved===currentFilter
+    );
+  }
+
+  if(currentFilter==="standard"){
+    return ["standard","large"].includes(spot.vehicle_size);
+  }
+
+  return true;
+}
+
+function openReport(){
+
+  closeDriverSheet();
+
+  if(!userPosition){
+    return toast("Attends que ta position soit trouvée.");
+  }
+
+  if(userPosition.accuracy>100){
+    return toast("GPS trop imprécis.");
+  }
+
+  document.getElementById("reportScreen")
+    .classList.remove("hidden");
+}
+
+function closeReport(){
+  document.getElementById("reportScreen")
+    .classList.add("hidden");
+}
+
+function previewPhoto(event){
+
+  const file=event.target.files[0];
+
+  if(!file) return;
+
+  selectedPhoto=file;
+
+  const preview=document.getElementById("photoPreview");
+
+  preview.src=URL.createObjectURL(file);
+
+  preview.classList.remove("hidden");
+}
+
+document.addEventListener("click",event=>{
+
+  const choice=event.target.closest(".choice");
+
+  if(!choice) return;
+
+  const group=choice.dataset.group;
+  const value=choice.dataset.value;
+
+  document.querySelectorAll(
+    `.choice[data-group="${group}"]`
+  ).forEach(item=>item.classList.remove("selected"));
+
+  choice.classList.add("selected");
+
+  reportData[group]=value;
+});
+
+async function publishSpot(){
+
+  if(!selectedPhoto){
+    return toast("📸 Prends d'abord une photo.");
+  }
+
+  const required=[
+    "parking_type",
+    "price_type",
+    "reserved",
+    "vehicle_size",
+    "marking",
+    "restriction",
+    "obstacle"
+  ];
+
+  if(required.some(key=>!reportData[key])){
+    return toast("Réponds à toutes les questions.");
+  }
+
+  if(!userPosition){
+    return toast("Position GPS indisponible.");
+  }
+
+  const button=document.getElementById("publishButton");
+
+  button.disabled=true;
+  button.textContent="⏳ Publication…";
+
+  let aiStatus=
+    (
+      reportData.reserved!=="none" ||
+      reportData.obstacle==="yes" ||
+      reportData.restriction==="yes"
+    )
+    ? "review"
+    : "pending";
+
+  const payload={
+    latitude:userPosition.lat,
+    longitude:userPosition.lng,
+    accuracy:userPosition.accuracy,
+    reported_by:currentUser.id,
+    status:"available",
+    parking_type:reportData.parking_type,
+    price_type:reportData.price_type,
+    marking:reportData.marking,
+    restriction_visible:
+      reportData.restriction==="yes"
+        ? true
+        : reportData.restriction==="no"
+          ? false
+          : null,
+    vehicle_size:reportData.vehicle_size,
+    ai_status:aiStatus,
+    occupied_reports:0,
+    confirmed_reports:0,
+    reserved_type:reportData.reserved
+  };
+
+  let {error}=await db
+    .from("parking_spots")
+    .insert(payload);
+
+  if(
+    error &&
+    error.message.includes("reserved_type")
+  ){
+
+    delete payload.reserved_type;
+
+    ({error}=await db
+      .from("parking_spots")
+      .insert(payload));
+  }
+
+  button.disabled=false;
+  button.textContent="✅ Publier la place";
+
+  if(error){
+    console.error(error);
+    return toast("Erreur : "+error.message);
+  }
+
+  closeReport();
+
+  toast("🚗 Place publiée !");
+
+  resetReport();
+
+  await loadSpots();
+}
+
+function resetReport(){
+
+  reportData={};
+  selectedPhoto=null;
+
+  document.querySelectorAll(".choice")
+    .forEach(item=>item.classList.remove("selected"));
+
+  document.getElementById("spotPhoto").value="";
+
+  const preview=document.getElementById("photoPreview");
+
+  preview.src="";
+  preview.classList.add("hidden");
+}
+
+async function loadSpots(){
+
+  const now=new Date().toISOString();
+
+  const {data,error}=await db
+    .from("parking_spots")
+    .select("*")
+    .eq("status","available")
+    .gt("expires_at",now)
+    .order("created_at",{ascending:false});
+
+  if(error){
+    console.error(error);
+    return;
+  }
+
+  allSpots=data||[];
+
+  renderSpots();
+}
+
+function renderSpots(custom=null){
+
+  clearSpotMarkers();
+
+  (
+    custom ||
+    allSpots.filter(matchesFilter)
+  ).forEach(addSpotMarker);
+}
+
+function clearSpotMarkers(){
+
+  spotMarkers.forEach(marker=>
+    map.removeLayer(marker)
+  );
+
+  spotMarkers=[];
+}
+
+function markerVisual(spot){
+
+  let emoji="P";
+  let background="#111";
+
+  const reserved=
+    spot.reserved_type ||
+    spot.reserved;
+
+  if(reserved==="disabled"){
+
+    emoji="♿";
+    background="#246bfd";
+
+  }else if(reserved==="electric"){
+
+    emoji="⚡";
+    background="#18a558";
+
+  }else if(reserved==="delivery"){
+
+    emoji="📦";
+    background="#f59e0b";
+
+  }else if(spot.price_type==="free"){
+
+    emoji="P";
+    background="#111";
+
+  }else if(spot.price_type==="paid"){
+
+    emoji="€";
+    background="#7c3aed";
+  }
+
+  return{
+    emoji,
+    bg:background
+  };
+}
+
+function addSpotMarker(spot){
+
+  if(
+    !spot ||
+    spot.latitude==null ||
+    spot.longitude==null
+  ) return;
+
+  if(
+    spot.expires_at &&
+    new Date(spot.expires_at)<=new Date()
+  ) return;
+
+  const visual=markerVisual(spot);
+
+  const icon=L.divIcon({
+    className:"",
+    html:
+      `<div class="spot-icon" style="background:${visual.bg};color:white">${visual.emoji}</div>`,
+    iconSize:[42,42],
+    iconAnchor:[21,21]
+  });
+
+  const marker=L.marker(
+    [spot.latitude,spot.longitude],
+    {icon}
+  ).addTo(map);
+
+  marker.on("click",()=>{
+    openDriverSheet(spot);
+  });
+
+  spotMarkers.push(marker);
+}
+
+function openDriverSheet(spot){
+
+  selectedSpot=spot;
+
+  const created=spot.created_at
+    ? new Date(spot.created_at)
+    : new Date();
+
+  document.getElementById("driverFreshness").textContent=
+    "Signalée il y a "+timeAgo(created);
+
+  document.getElementById("driverPrice").textContent=
+    priceLabel(spot.price_type);
+
+  document.getElementById("driverSize").textContent=
+    sizeLabel(spot.vehicle_size);
+
+  document.getElementById("driverType").textContent=
+    typeLabel(spot.parking_type);
+
+  const confirmations=
+    Number(spot.confirmed_reports)||0;
+
+  document.getElementById("driverConfirmations").textContent=
+    confirmations===0
+      ? "Nouveau signalement"
+      : confirmations+
+        (confirmations===1
+          ? " confirmation"
+          : " confirmations");
+
+  updateDriverDistance();
+
+  document.getElementById("driverSheet")
+    .classList.remove("hidden");
+}
+
+function closeDriverSheet(){
+
+  document.getElementById("driverSheet")
+    .classList.add("hidden");
+
+  selectedSpot=null;
+}
+
+function priceLabel(value){
+
+  return value==="free"
+    ? "💳 Gratuit"
+    : value==="paid"
+      ? "💶 Payant"
+      : "❓ Non précisé";
+}
+
+function sizeLabel(value){
+
+  return value==="small"
+    ? "🚗 Petite"
+    : value==="large"
+      ? "🚙 Grande"
+      : "🚗 Standard";
+}
+
+function typeLabel(value){
+
+  return value==="street"
+    ? "🛣️ Rue"
+    : value==="parking"
+      ? "🅿️ Parking"
+      : "🅿️ Non précisé";
+}
+
+function updateDriverDistance(){
+
+  const element=
+    document.getElementById("driverDistance");
+
+  if(!selectedSpot) return;
+
+  if(!userPosition){
+
+    element.textContent=
+      "📍 Distance indisponible";
+
+    return;
+  }
+
+  const distance=distanceMeters(
+    userPosition.lat,
+    userPosition.lng,
+    +selectedSpot.latitude,
+    +selectedSpot.longitude
+  );
+
+  element.textContent=
+    distance<1000
+      ? "📍 À environ "+Math.round(distance)+" m de toi"
+      : "📍 À environ "+(distance/1000).toFixed(1)+" km de toi";
+}
+
+function distanceMeters(lat1,lng1,lat2,lng2){
+
+  const R=6371000;
+
+  const radians=value=>
+    value*Math.PI/180;
+
+  const deltaLat=
+    radians(lat2-lat1);
+
+  const deltaLng=
+    radians(lng2-lng1);
+
+  const x=
+    Math.sin(deltaLat/2)**2 +
+    Math.cos(radians(lat1)) *
+    Math.cos(radians(lat2)) *
+    Math.sin(deltaLng/2)**2;
+
+  return R*2*Math.atan2(
+    Math.sqrt(x),
+    Math.sqrt(1-x)
+  );
+}
+
+function openNavigationSheet(){
+
+  if(!selectedSpot) return;
+
+  document.getElementById("navSheet")
+    .classList.remove("hidden");
+}
+
+function closeNavSheet(){
+
+  document.getElementById("navSheet")
+    .classList.add("hidden");
+}
+
+function navigateWith(app){
+
+  if(!selectedSpot) return;
+
+  const lat=+selectedSpot.latitude;
+  const lng=+selectedSpot.longitude;
+
+  let url;
+
+  if(app==="apple"){
+    url=
+      `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`;
+  }
+
+  if(app==="google"){
+    url=
+      `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+  }
+
+  if(app==="waze"){
+    url=
+      `https://waze.com/ul?ll=${lat}%2C${lng}&navigate=yes`;
+  }
+
+  window.location.href=url;
+}
+
+function nearSelected(max=120){
+
+  if(!userPosition||!selectedSpot){
+    return false;
+  }
+
+  return distanceMeters(
+    userPosition.lat,
+    userPosition.lng,
+    +selectedSpot.latitude,
+    +selectedSpot.longitude
+  )<=max;
+}
+
+async function confirmSpotAvailable(){
+
+  if(!selectedSpot) return;
+
+  if(!nearSelected()){
+    return toast(
+      "📍 Approche-toi de la place pour la confirmer."
+    );
+  }
+
+  const id=selectedSpot.id;
+
+  try{
+
+    const {error}=await db
+      .from("spot_reports")
+      .insert({
+        spot_id:id,
+        user_id:currentUser.id,
+        report_type:"available"
+      });
+
+    if(error){
+
+      if(error.code==="23505"){
+        return toast(
+          "Tu as déjà donné ton avis sur cette place."
+        );
+      }
+
+      throw error;
+    }
+
+    await db
+      .from("parking_spots")
+      .update({
+        confirmed_reports:
+          (Number(selectedSpot.confirmed_reports)||0)+1,
+        last_confirmed_at:
+          new Date().toISOString()
+      })
+      .eq("id",id);
+
+    toast("✅ Merci, place confirmée !");
+
+    closeDriverSheet();
+
+    await loadSpots();
+
+  }catch(error){
+
+    console.error(error);
+
+    toast(
+      "Impossible de confirmer la place."
+    );
+  }
+}
+
+async function reportSpotOccupied(){
+
+  if(!selectedSpot) return;
+
+  if(!nearSelected()){
+    return toast(
+      "📍 Approche-toi de la place pour la signaler occupée."
+    );
+  }
+
+  const spot=selectedSpot;
+  const id=spot.id;
+
+  try{
+
+    const {error}=await db
+      .from("spot_reports")
+      .insert({
+        spot_id:id,
+        user_id:currentUser.id,
+        report_type:"occupied"
+      });
+
+    if(error){
+
+      if(error.code==="23505"){
+        return toast(
+          "Tu as déjà donné ton avis sur cette place."
+        );
+      }
+
+      throw error;
+    }
+
+    const number=
+      (Number(spot.occupied_reports)||0)+1;
+
+    const updates={
+      occupied_reports:number
+    };
+
+    if(number>=2){
+      updates.status="occupied";
+    }
+
+    await db
+      .from("parking_spots")
+      .update(updates)
+      .eq("id",id);
+
+    toast(
+      number>=2
+        ? "🚗 Place retirée de la carte."
+        : "⚠️ Signalement enregistré. Une autre confirmation est nécessaire."
+    );
+
+    closeDriverSheet();
+
+    await loadSpots();
+
+  }catch(error){
+
+    console.error(error);
+
+    toast(
+      "Impossible de mettre à jour la place."
+    );
+  }
+}
+
+function openParkedSheet(){
+
+  if(!selectedSpot) return;
+
+  if(!nearSelected(150)){
+    return toast(
+      "📍 Tu dois être près de la place."
+    );
+  }
+
+  document.getElementById("parkedSheet")
+    .classList.remove("hidden");
+}
+
+function closeParkedSheet(){
+
+  document.getElementById("parkedSheet")
+    .classList.add("hidden");
+}
+
+async function saveParkingDuration(minutes){
+
+  if(!selectedSpot) return;
+
+  const leave=
+    minutes
+      ? new Date(
+          Date.now()+minutes*60000
+        ).toISOString()
+      : null;
+
+  const {error}=await db
+    .from("parking_sessions")
+    .insert({
+      user_id:currentUser.id,
+      spot_id:selectedSpot.id,
+      expected_leave_at:leave
+    });
+
+  if(error){
+
+    console.error(error);
+
+    return toast(
+      "Impossible d'enregistrer le stationnement."
+    );
+  }
+
+  await db
+    .from("parking_spots")
+    .update({
+      status:"occupied"
+    })
+    .eq("id",selectedSpot.id);
+
+  toast(
+    minutes
+      ? "🚘 Garé. Départ prévu dans "+minutes+" min."
+      : "🚘 Stationnement enregistré."
+  );
+
+  closeParkedSheet();
+  closeDriverSheet();
+
+  await loadSpots();
+}
+
+function timeAgo(date){
+
+  const seconds=Math.max(
+    0,
+    Math.floor(
+      (Date.now()-date.getTime())/1000
+    )
+  );
+
+  if(seconds<60){
+    return "quelques secondes";
+  }
+
+  const minutes=
+    Math.floor(seconds/60);
+
+  if(minutes===1){
+    return "1 minute";
+  }
+
+  if(minutes<60){
+    return minutes+" minutes";
+  }
+
+  const hours=
+    Math.floor(minutes/60);
+
+  return hours===1
+    ? "1 heure"
+    : hours+" heures";
+}
+
+function subscribeSpots(){
+
+  if(spotsChannel) return;
+
+  spotsChannel=db
+    .channel("parking-spots-live")
+    .on(
+      "postgres_changes",
+      {
+        event:"*",
+        schema:"public",
+        table:"parking_spots"
+      },
+      ()=>loadSpots()
+    )
+    .subscribe();
+}
+
+async function loadCredits(){
+
+  if(!currentUser) return;
+
+  const {data,error}=await db
+    .from("rewards")
+    .select("amount")
+    .eq("user_id",currentUser.id);
+
+  if(error){
+    return console.error(error);
+  }
+
+  document.getElementById("credits").textContent=
+    (data||[]).reduce(
+      (sum,item)=>
+        sum+(Number(item.amount)||0),
+      0
+    );
+}
+
+setInterval(()=>{
+  if(currentUser){
+    loadSpots();
+  }
+},30000);
+
+checkSession();
 </script>
+
 </body>
 </html>
