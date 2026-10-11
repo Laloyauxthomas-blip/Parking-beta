@@ -387,6 +387,7 @@ input,select{
 .wallet-entry:last-child{border-bottom:0}
 .wallet-entry strong{white-space:nowrap}
 
+#watchPanel{position:fixed;z-index:4600;top:calc(75px + env(safe-area-inset-top));left:12px;right:70px;max-width:360px;background:white;border:1px solid #ddd;border-radius:18px;padding:13px;box-shadow:0 6px 22px #0002}
 </style>
 </head>
 
@@ -495,6 +496,14 @@ input,select{
     <div id="walletHistory" class="wallet-muted">Aucun gain enregistré pour le moment.</div>
   </div>
   <button class="secondary" onclick="closeWallet()">Retour à la carte</button>
+</div>
+
+<!-- SURVEILLANCE AUTOMATIQUE : suivi visible uniquement lorsque l’app est ouverte -->
+<div id="watchPanel" class="hidden" role="status" aria-live="polite">
+  <div style="font-weight:850;font-size:17px">👀 Surveillance en cours</div>
+  <div id="watchInfo" style="font-size:13px;color:#555;margin:7px 0">Vérification de ta position…</div>
+  <div id="watchPotential" style="font-weight:800;margin-bottom:8px">Gain potentiel : 0,50 € fictif</div>
+  <button class="danger" onclick="stopAutoWatch()" style="padding:10px">Arrêter la surveillance</button>
 </div>
 
 <!-- FICHE PILOTE -->
@@ -966,6 +975,7 @@ async function signup(){
 }
 
 async function logout(){
+  if(activeWatch) await stopAutoWatch(true);
 
   await db.auth.signOut();
 
@@ -1012,6 +1022,7 @@ async function startApp(user){
 
   await loadSpots();
   await loadCredits();
+  await resumeAutoWatch();
 
   subscribeSpots();
 }
@@ -1083,6 +1094,7 @@ function startLocation(){
       if(selectedSpot){
         updateDriverDistance();
       }
+      evaluateAutoWatch();
     },
 
     ()=>{
@@ -1461,6 +1473,8 @@ async function publishSpot(){
       reported_by:
         currentUser.id,
 
+      watch_requested:true,
+
       status:
         "available",
 
@@ -1570,9 +1584,8 @@ async function publishSpot(){
 
     closeReport();
 
-    toast(
-      "📸🚗 Place publiée avec sa photo !"
-    );
+    toast("📸 Place publiée ! Surveillance automatique activée.");
+    await beginAutoWatch(spot);
 
     resetReport();
 
@@ -2504,6 +2517,88 @@ async function loadCredits(){
     row.append(info,amount);history.append(row);
   }
 }
+
+
+/* SURVEILLANCE AUTOMATIQUE — BÊTA (aucun crédit versé ici)
+   Fonctionne uniquement lorsque la page est ouverte et que le GPS est disponible.
+   Les données GPS déclarées par le téléphone ne constituent pas une preuve anti-fraude. */
+let activeWatch=null;
+let watchOutsideSince=null;
+let watchHeartbeatBusy=false;
+let watchLastSent=0;
+let watchAlertShown=false;
+const WATCH_RADIUS=50;
+const WATCH_GRACE_MS=20000;
+function watchEuro(minutes){
+  if(minutes<5)return 0.50;
+  if(minutes<10)return 1;
+  if(minutes<15)return 1.50;
+  if(minutes<20)return 2;
+  if(minutes<25)return 2.50;
+  return 3;
+}
+function watchUI(message){
+  document.getElementById('watchPanel').classList.toggle('hidden',!activeWatch);
+  document.getElementById('watchInfo').textContent=message;
+  if(activeWatch){
+    const mins=Math.max(0,(Date.now()-Date.parse(activeWatch.started_at))/60000);
+    document.getElementById('watchPotential').textContent='Gain potentiel : '+watchEuro(mins).toFixed(2).replace('.',',')+' € fictifs (non acquis)';
+  }
+}
+async function beginAutoWatch(spot){
+  if(!spot?.id)return;
+  // Une seule surveillance active par utilisateur : l'ancienne est clôturée.
+  if(activeWatch && activeWatch.spot_id!==spot.id) await stopAutoWatch(true);
+  const {data,error}=await db.rpc('parking_beta_watch_start',{p_spot_id:spot.id});
+  if(error){console.error('WATCH START:',error);toast('Surveillance indisponible : configuration Supabase à vérifier.');return;}
+  activeWatch=data;
+  watchOutsideSince=null;watchAlertShown=false;watchLastSent=0;
+  evaluateAutoWatch();
+}
+async function resumeAutoWatch(){
+  const {data,error}=await db.rpc('parking_beta_watch_current');
+  if(error){console.warn('WATCH RESUME:',error);return;}
+  activeWatch=data;
+  if(activeWatch){watchOutsideSince=null;watchLastSent=0;evaluateAutoWatch();}
+}
+async function stopAutoWatch(silent=false){
+  if(!activeWatch)return;
+  const id=activeWatch.spot_id;
+  activeWatch=null;watchOutsideSince=null;
+  document.getElementById('watchPanel').classList.add('hidden');
+  const {error}=await db.rpc('parking_beta_watch_stop',{p_spot_id:id});
+  if(error)console.error('WATCH STOP:',error);
+  if(!silent)toast(error?'Arrêt non confirmé : réessaie ou actualise.':'Surveillance arrêtée. Signalement conservé.');
+}
+async function evaluateAutoWatch(){
+  if(!activeWatch)return;
+  if(document.hidden){watchUI('Application en arrière-plan : surveillance non garantie.');return;}
+  if(!userPosition||!Number.isFinite(userPosition.accuracy)||userPosition.accuracy>60){
+    watchUI('GPS imprécis : surveillance non confirmée. Reste sur cette page et attends un meilleur signal.');return;
+  }
+  const distance=distanceMeters(userPosition.lat,userPosition.lng,+activeWatch.latitude,+activeWatch.longitude);
+  if(distance>WATCH_RADIUS){
+    if(!watchOutsideSince)watchOutsideSince=Date.now();
+    const remaining=Math.max(0,Math.ceil((WATCH_GRACE_MS-(Date.now()-watchOutsideSince))/1000));
+    watchUI('⚠️ Hors périmètre ('+Math.round(distance)+' m). Retour sous '+remaining+' s ou bonus perdu.');
+    if(!watchAlertShown){watchAlertShown=true;toast('⚠️ Tu quittes la zone : le bonus de surveillance risque d’être perdu.');}
+    if(remaining===0){await stopAutoWatch();toast('Surveillance interrompue : sortie du périmètre.');}
+    return;
+  }
+  watchOutsideSince=null;watchAlertShown=false;
+  watchUI('📍 Dans la zone ('+Math.round(distance)+' m). Garde cette page ouverte.');
+  if(watchHeartbeatBusy||Date.now()-watchLastSent<12000)return;
+  watchHeartbeatBusy=true;
+  try{
+    const {data,error}=await db.rpc('parking_beta_watch_ping',{p_spot_id:activeWatch.spot_id,p_lat:userPosition.lat,p_lng:userPosition.lng,p_accuracy:userPosition.accuracy});
+    if(error||!data?.ok){
+      console.warn('WATCH PING:',error||data);
+      if(data?.ended){activeWatch=null;document.getElementById('watchPanel').classList.add('hidden');toast('Surveillance terminée côté serveur.');}
+    }else watchLastSent=Date.now();
+  }finally{watchHeartbeatBusy=false;}
+}
+setInterval(()=>{if(activeWatch)evaluateAutoWatch()},5000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&activeWatch)evaluateAutoWatch()});
 
 /* ACTUALISATION */
 
