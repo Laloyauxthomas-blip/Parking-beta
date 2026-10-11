@@ -373,6 +373,20 @@ input,select{
   gap:8px;
   margin-top:12px
 }
+
+/* PORTEFEUILLE BETA */
+.wallet-shortcut{cursor:pointer;text-align:left;width:100%;border-radius:14px;padding:12px 14px;background:#f5f5f5;display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;font-size:15px}
+#walletScreen{position:fixed;inset:0;background:#f4f5f7;z-index:7200;overflow-y:auto;padding:calc(20px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom))}
+.wallet-card{background:#fff;border-radius:20px;padding:20px;margin-bottom:14px}
+.wallet-balance{font-size:40px;font-weight:850;margin:10px 0}
+.wallet-muted{color:#777;font-size:13px}
+.wallet-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.wallet-stat{background:#f4f5f7;border-radius:14px;padding:14px}
+.wallet-stat strong{display:block;font-size:22px;margin-top:6px}
+.wallet-entry{display:flex;justify-content:space-between;gap:10px;padding:14px 0;border-bottom:1px solid #eee}
+.wallet-entry:last-child{border-bottom:0}
+.wallet-entry strong{white-space:nowrap}
+
 </style>
 </head>
 
@@ -429,10 +443,10 @@ input,select{
 
 <div class="bottom">
 
-  <div class="reward">
-    <span>💰 Mes crédits</span>
-    <span id="credits">0</span>
-  </div>
+  <button class="wallet-shortcut" onclick="openWallet()" aria-label="Ouvrir mon portefeuille">
+    <span>💰 Mon portefeuille</span>
+    <span><span id="credits">0,00 €</span> ›</span>
+  </button>
 
   <div id="status" class="status">
     📍 Recherche de ta position…
@@ -454,6 +468,33 @@ input,select{
   </div>
 
 </div>
+</div>
+
+
+<!-- PORTEFEUILLE : EUROS FICTIFS -->
+<div id="walletScreen" class="hidden">
+  <div class="report-header">
+    <button class="close" onclick="closeWallet()" aria-label="Fermer">✕</button>
+    <div class="report-title">💰 Mon portefeuille</div>
+  </div>
+  <div class="wallet-card">
+    <div class="wallet-muted">Solde de test — aucune valeur monétaire réelle</div>
+    <div id="walletBalance" class="wallet-balance">0,00 €</div>
+    <div class="wallet-muted">Bêta : aucun retrait ni paiement disponible.</div>
+  </div>
+  <div class="wallet-card">
+    <h3>Mes récompenses</h3>
+    <div class="wallet-stats">
+      <div class="wallet-stat">📸 Signalements<strong id="walletReports">0,00 €</strong></div>
+      <div class="wallet-stat">👀 Surveillance<strong id="walletWatches">0,00 €</strong></div>
+    </div>
+    <p class="wallet-muted">Barème envisagé : 0,10 € par signalement utilisé ; jusqu'à 3,00 € au total si la surveillance est maintenue jusqu'à l'arrivée du Pilote.</p>
+  </div>
+  <div class="wallet-card">
+    <h3>Historique des gains</h3>
+    <div id="walletHistory" class="wallet-muted">Aucun gain enregistré pour le moment.</div>
+  </div>
+  <button class="secondary" onclick="closeWallet()">Retour à la carte</button>
 </div>
 
 <!-- FICHE PILOTE -->
@@ -2423,47 +2464,45 @@ function subscribeSpots(){
       .subscribe();
 }
 
-/* CRÉDITS */
-
+/* PORTEFEUILLE : lecture seule, les gains seront attribués côté serveur */
+const moneyFormatter=new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'});
+function formatMoney(cents){return moneyFormatter.format((Number(cents)||0)/100)}
+function openWallet(){document.getElementById('walletScreen').classList.remove('hidden');loadCredits()}
+function closeWallet(){document.getElementById('walletScreen').classList.add('hidden')}
 async function loadCredits(){
-
-  if(!currentUser){
-    return;
-  }
-
-  const {
-    data,
-    error
-  }=
-    await db
-      .from("rewards")
-      .select("amount")
-      .eq(
-        "user_id",
-        currentUser.id
-      );
-
+  if(!currentUser)return;
+  const {data,error}=await db.from('beta_wallet_entries')
+    .select('amount_cents,kind,description,created_at')
+    .eq('user_id',currentUser.id)
+    .order('created_at',{ascending:false})
+    .limit(500);
+  const history=document.getElementById('walletHistory');
   if(error){
-
-    console.error(error);
-
+    console.error('WALLET ERROR',error);
+    history.textContent='Portefeuille indisponible. Vérifie que le script SQL a été exécuté dans Supabase.';
     return;
   }
-
-  document
-    .getElementById("credits")
-    .textContent=
-      (data||[])
-        .reduce(
-          (sum,item)=>
-            sum+
-            (
-              Number(
-                item.amount
-              )||0
-            ),
-          0
-        );
+  const entries=data||[];
+  const total=entries.reduce((sum,e)=>sum+Number(e.amount_cents||0),0);
+  const reports=entries.filter(e=>e.kind==='report').reduce((s,e)=>s+Number(e.amount_cents||0),0);
+  const watches=entries.filter(e=>e.kind==='watch').reduce((s,e)=>s+Number(e.amount_cents||0),0);
+  document.getElementById('credits').textContent=formatMoney(total);
+  document.getElementById('walletBalance').textContent=formatMoney(total);
+  document.getElementById('walletReports').textContent=formatMoney(reports);
+  document.getElementById('walletWatches').textContent=formatMoney(watches);
+  history.replaceChildren();
+  if(!entries.length){history.textContent='Aucun gain enregistré pour le moment.';return}
+  for(const e of entries){
+    const row=document.createElement('div');row.className='wallet-entry';
+    const info=document.createElement('div');
+    const label=document.createElement('div');
+    label.textContent=e.description||(e.kind==='watch'?'Surveillance':'Signalement');
+    const date=document.createElement('div');date.className='wallet-muted';
+    date.textContent=e.created_at?new Date(e.created_at).toLocaleString('fr-FR'):'';
+    info.append(label,date);
+    const amount=document.createElement('strong');amount.textContent=formatMoney(e.amount_cents);
+    row.append(info,amount);history.append(row);
+  }
 }
 
 /* ACTUALISATION */
