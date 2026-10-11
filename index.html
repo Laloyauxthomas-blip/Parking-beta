@@ -388,6 +388,19 @@ input,select{
 .wallet-entry strong{white-space:nowrap}
 
 #watchPanel{position:fixed;z-index:4600;top:calc(75px + env(safe-area-inset-top));left:12px;right:12px;max-width:420px;background:white;border:1px solid #ddd;border-radius:18px;padding:13px;box-shadow:0 6px 22px #0002}
+
+/* PARKING BETA — parcours pilote, confirmations et notifications */
+#betaBell{position:relative}
+#betaBellCount{position:absolute;right:-4px;top:-5px;background:#d92d20;color:white;border-radius:20px;font-size:10px;padding:2px 5px}
+#betaNotices{position:fixed;inset:0;z-index:7400;background:#f4f5f7;overflow:auto;padding:calc(22px + env(safe-area-inset-top)) 16px 30px}
+.betaNotice{background:white;border-radius:15px;padding:15px;margin:9px 0;border:1px solid #eee}
+.betaNotice small{display:block;color:#777;margin-top:5px}
+#betaReconfirm{position:fixed;left:10px;right:10px;top:calc(230px + env(safe-area-inset-top));z-index:4800;background:#fff;border:2px solid #f59e0b;border-radius:18px;padding:14px;box-shadow:0 6px 22px #0002;max-width:430px}
+#betaArrival{position:fixed;inset:0;z-index:6900;background:#f4f5f7;overflow:auto;padding:calc(25px + env(safe-area-inset-top)) 18px 30px}
+.betaMuted{color:#777;font-size:13px}
+.betaPill{padding:9px 12px;border-radius:12px;background:#edf4ff;font-weight:700;margin:8px 0}
+.betaTipGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.betaTipGrid button{font-size:14px;padding:12px 4px}
 </style>
 </head>
 
@@ -410,7 +423,7 @@ input,select{
 
 <header>
   <div class="logo">🅿️ Parking Beta</div>
-  <div class="beta">BETA</div>
+  <div style="display:flex;align-items:center;gap:10px"><button id="betaBell" onclick="betaOpenNotices()" aria-label="Notifications" style="width:42px;height:42px;padding:0;background:#f2f2f2">🔔<span id="betaBellCount" class="hidden">0</span></button><div class="beta">BETA</div></div>
 </header>
 
 <div id="map"></div>
@@ -508,6 +521,47 @@ input,select{
   <button id="watchStop" class="danger" onclick="stopAutoWatch()" style="padding:10px">Arrêter la surveillance</button>
 </div>
 
+<!-- CONFIRMATION PHOTO ÉCLAIREUR -->
+<div id="betaReconfirm" class="hidden">
+  <strong>📸 Ta place est-elle toujours libre ?</strong>
+  <p class="betaMuted" id="betaReconfirmText">Prends une nouvelle photo pour reconfirmer.</p>
+  <input id="betaReconfirmPhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onchange="betaPreviewReconfirm(this)">
+  <img id="betaReconfirmPreview" class="hidden" style="width:100%;max-height:130px;object-fit:cover;border-radius:10px">
+  <button class="primary" onclick="betaSubmitReconfirm()">✅ Confirmer avec cette photo</button>
+  <button class="secondary" onclick="betaMarkUnavailable()">❌ La place est prise</button>
+  <button class="secondary" onclick="betaDismissReconfirm()">Plus tard (place non confirmée)</button>
+</div>
+<!-- NOTIFICATIONS DANS L'APPLICATION -->
+<div id="betaNotices" class="hidden">
+  <div class="report-header"><button class="close" onclick="betaCloseNotices()">✕</button><div class="report-title">🔔 Notifications</div></div>
+  <div id="betaNoticesList">Chargement…</div>
+</div>
+<!-- ARRIVÉE PILOTE / POURBOIRE -->
+<div id="betaArrival" class="hidden">
+  <div class="report-header"><button class="close" onclick="betaCloseArrival()">✕</button><div class="report-title">🚗 Arrivée sur la place</div></div>
+  <div class="report-card">
+    <h3 id="betaArrivalTitle">Vérification du stationnement</h3>
+    <div id="betaArrivalIndicators" class="betaPill">GPS en cours d'analyse…</div>
+    <p class="betaMuted">Le GPS donne des indices, pas une preuve absolue. Tu peux confirmer ton stationnement ou laisser l'application analyser ton arrivée.</p>
+    <button class="success" onclick="betaDriverAnswer(true)">✅ Oui, je suis garé ici</button>
+    <button class="danger" onclick="betaDriverAnswer(false)">❌ Non, je ne suis pas garé ici</button>
+    <button class="secondary" onclick="betaDriverAnswer(null)">Continuer sans répondre</button>
+  </div>
+  <div id="betaTipBox" class="report-card hidden">
+    <h3>❤️ Remercier l'Éclaireur</h3>
+    <p class="betaMuted">Pourboire facultatif et fictif pour la bêta : aucun paiement, aucun débit réel.</p>
+    <div class="betaTipGrid">
+      <button class="secondary" onclick="betaTip(0)">0 €</button>
+      <button class="secondary" onclick="betaTip(50)">0,50 €</button>
+      <button class="secondary" onclick="betaTip(100)">1 €</button>
+      <button class="secondary" onclick="betaTip(200)">2 €</button>
+      <button class="secondary" onclick="betaTip(300)">3 €</button>
+      <button class="secondary" onclick="betaTip(-1)">Autre</button>
+    </div>
+    <div id="betaTipResult" class="betaMuted" style="margin-top:10px"></div>
+    <button class="primary" onclick="betaCloseArrival()">Terminer</button>
+  </div>
+</div>
 <!-- FICHE PILOTE -->
 
 <div id="driverSheet" class="hidden">
@@ -573,9 +627,8 @@ input,select{
     🧭 M'y rendre
   </button>
 
-  <button class="secondary" onclick="openParkedSheet()">
-    🚘 Je me suis garé ici
-  </button>
+  <button class="secondary" onclick="openParkedSheet()">🚘 Je me suis garé ici</button>
+  <button class="secondary" onclick="betaStartPilotTracking()">📍 Suivre mon arrivée automatiquement</button>
 
   <div class="validationBox">
 
@@ -1027,6 +1080,7 @@ async function startApp(user){
   await resumeAutoWatch();
 
   subscribeSpots();
+  betaInitialize();
 }
 
 async function createProfile(){
@@ -1093,9 +1147,8 @@ function startLocation(){
         ]);
       }
 
-      if(selectedSpot){
-        updateDriverDistance();
-      }
+      if(selectedSpot){updateDriverDistance();}
+      betaOnLocation(position);
       evaluateAutoWatch();
     },
 
@@ -1588,6 +1641,7 @@ async function publishSpot(){
 
     toast("📸 Place publiée ! Démarrage de la surveillance…");
     await beginAutoWatch(spot);
+    betaSetOwnedSpot(spot);
 
     resetReport();
 
@@ -2030,6 +2084,7 @@ function openNavigationSheet(){
     return;
   }
 
+  betaBeginTrackingSilently();
   document
     .getElementById("navSheet")
     .classList.remove("hidden");
@@ -2330,6 +2385,7 @@ function openParkedSheet(){
     );
   }
 
+  betaBeginTrackingSilently();
   document
     .getElementById("parkedSheet")
     .classList.remove("hidden");
@@ -2381,15 +2437,8 @@ async function saveParkingDuration(minutes){
     );
   }
 
-  await db
-    .from("parking_spots")
-    .update({
-      status:"occupied"
-    })
-    .eq(
-      "id",
-      selectedSpot.id
-    );
+  // La place est clôturée côté serveur après validation, pas par un UPDATE client.
+  await betaRegisterArrival(selectedSpot.id);
 
   toast(
     minutes
@@ -2400,9 +2449,7 @@ async function saveParkingDuration(minutes){
   );
 
   closeParkedSheet();
-
-  closeDriverSheet();
-
+  betaShowArrival();
   await loadSpots();
 }
 
@@ -2590,7 +2637,7 @@ async function resumeAutoWatch(){
     const {data,error}=await db.rpc('parking_beta_watch_current');
     if(error)throw error;
     activeWatch=data;
-    if(activeWatch){watchOutsideSince=null;watchLastSent=0;await evaluateAutoWatch();}
+    if(activeWatch){watchOutsideSince=null;watchLastSent=0;await evaluateAutoWatch();betaOwnedSpotId=activeWatch.spot_id;}
   }catch(error){
     console.warn('WATCH RESUME:',error);
     watchFailure('Impossible de récupérer la surveillance : '+(error.message||String(error)));
@@ -2647,6 +2694,158 @@ setInterval(
   },
   30000
 );
+
+
+/* === PARKING BETA TEST LILLE : vérifications & notifications ===
+  Toutes les récompenses sont FICTIVES. Les validations sont faites côté SQL.
+  Safari iPhone doit rester ouvert pour le suivi GPS et les rappels. */
+let betaOwnedSpotId=null;
+let betaReconfirmDismissedUntil=0;
+let betaReconfirmBusy=false;
+let betaPilotSpotId=null;
+let betaPilotSamples=[];
+let betaPilotLastSend=0;
+let betaArrivalRegistered=false;
+let betaArrivalPollBusy=false;
+let betaPilotConfirmed=false;
+let betaPilotConfirmBusy=false;
+let betaLastPromptAt=0;
+let betaNotificationChannel=null;
+let betaTimersStarted=false;
+function betaSetOwnedSpot(spot){betaOwnedSpotId=spot.id;betaReconfirmDismissedUntil=0;}
+function betaOpenNotices(){document.getElementById('betaNotices').classList.remove('hidden');betaLoadNotices(true);}
+function betaCloseNotices(){document.getElementById('betaNotices').classList.add('hidden');}
+async function betaLoadNotices(mark=false){
+ if(!currentUser)return;
+ const {data,error}=await db.from('beta_notifications').select('id,title,body,created_at,read_at').eq('user_id',currentUser.id).order('created_at',{ascending:false}).limit(40);
+ if(error){console.warn('NOTIFICATIONS',error);return;}
+ const unread=(data||[]).filter(n=>!n.read_at);
+ const badge=document.getElementById('betaBellCount');badge.textContent=unread.length;badge.classList.toggle('hidden',!unread.length);
+ const list=document.getElementById('betaNoticesList');list.replaceChildren();
+ if(!data?.length)list.textContent='Aucune notification pour le moment.';
+ for(const n of data||[]){const el=document.createElement('div');el.className='betaNotice';const h=document.createElement('strong');h.textContent=n.title;const b=document.createElement('div');b.textContent=n.body;const t=document.createElement('small');t.textContent=new Date(n.created_at).toLocaleString('fr-FR');el.append(h,b,t);list.append(el);}
+ if(mark&&unread.length){await db.from('beta_notifications').update({read_at:new Date().toISOString()}).in('id',unread.map(n=>n.id));badge.classList.add('hidden');}
+}
+function betaInitialize(){
+ if(betaTimersStarted)return;betaTimersStarted=true;
+ betaLoadNotices();
+ setInterval(()=>{if(currentUser){betaLoadNotices();betaCheckReconfirm();}},15000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){betaLoadNotices();betaCheckReconfirm();}});
+ betaCheckReconfirm();
+}
+async function betaCheckReconfirm(){
+ if(!currentUser||!betaOwnedSpotId||document.hidden||betaReconfirmBusy||Date.now()<betaReconfirmDismissedUntil)return;
+ const {data,error}=await db.rpc('parking_beta_reconfirm_state',{p_spot_id:betaOwnedSpotId});
+ if(error){console.warn('RECONFIRM STATUS',error);return;}
+ if(!data?.active){betaOwnedSpotId=null;document.getElementById('betaReconfirm').classList.add('hidden');return;}
+ if(data.due){document.getElementById('betaReconfirm').classList.remove('hidden');document.getElementById('betaReconfirmText').textContent='Cela fait au moins 2 minutes. Reprends une photo de la place encore libre. Tant que tu ne reconfirmes pas, elle est marquée « À reconfirmer ».';}
+ else document.getElementById('betaReconfirm').classList.add('hidden');
+}
+function betaPreviewReconfirm(input){const file=input.files?.[0];if(!file)return;const img=document.getElementById('betaReconfirmPreview');img.src=URL.createObjectURL(file);img.classList.remove('hidden');}
+function betaDismissReconfirm(){betaReconfirmDismissedUntil=Date.now()+60000;document.getElementById('betaReconfirm').classList.add('hidden');}
+async function betaSubmitReconfirm(){
+ const file=document.getElementById('betaReconfirmPhoto').files?.[0];
+ if(!file)return toast('Prends une nouvelle photo.');
+ if(file.size>5*1024*1024||!['image/jpeg','image/png','image/webp'].includes(file.type))return toast('Photo JPG/PNG/WebP de 5 Mo maximum.');
+ if(!userPosition||userPosition.accuracy>60)return toast('GPS trop imprécis.');
+ betaReconfirmBusy=true;
+ try{
+  const ext=file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg';
+  const path=currentUser.id+'/'+Date.now()+'-reconfirm-'+Math.random().toString(36).slice(2)+'.'+ext;
+  const {error:uploadError}=await db.storage.from('parking-photos').upload(path,file,{contentType:file.type,upsert:false});
+  if(uploadError)throw uploadError;
+  const {data,error}=await db.rpc('parking_beta_reconfirm_photo',{p_spot_id:betaOwnedSpotId,p_photo_path:path,p_lat:userPosition.lat,p_lng:userPosition.lng,p_accuracy:userPosition.accuracy});
+  if(error||!data?.ok)throw error||new Error(data?.reason||'Reconfirmation refusée');
+  document.getElementById('betaReconfirmPhoto').value='';document.getElementById('betaReconfirmPreview').classList.add('hidden');
+  document.getElementById('betaReconfirm').classList.add('hidden');toast('📸 Place reconfirmée pour 2 minutes.');await loadSpots();
+ }catch(e){console.error('RECONFIRM',e);toast('Reconfirmation impossible : '+(e.message||e));}
+ finally{betaReconfirmBusy=false;}
+}
+async function betaMarkUnavailable(){
+ if(!betaOwnedSpotId)return;
+ const {error}=await db.rpc('parking_beta_owner_unavailable',{p_spot_id:betaOwnedSpotId});
+ if(error)return toast('Erreur : '+error.message);
+ betaOwnedSpotId=null;document.getElementById('betaReconfirm').classList.add('hidden');
+ if(activeWatch)await stopAutoWatch(true);
+ toast('Place retirée de la carte.');await loadSpots();
+}
+function betaBeginTrackingSilently(){
+ if(!selectedSpot||selectedSpot.reported_by===currentUser?.id)return;
+ if(String(betaPilotSpotId)===String(selectedSpot.id))return;
+ betaPilotSpotId=selectedSpot.id;betaPilotSamples=[];betaArrivalRegistered=false;betaPilotConfirmed=false;betaLastPromptAt=0;
+ toast('📍 Suivi GPS activé. Garde Parking Beta ouvert.');
+}
+function betaStartPilotTracking(){
+ if(!selectedSpot)return;
+ if(selectedSpot.reported_by===currentUser?.id)return toast('Tu ne peux pas valider ta propre place.');
+ betaBeginTrackingSilently();betaShowArrival();
+}
+function betaOnLocation(position){
+ if(!betaPilotSpotId||!currentUser)return;
+ const c=position.coords;const now=Date.now();
+ if(c.accuracy>60)return;
+ const sample={lat:c.latitude,lng:c.longitude,accuracy:c.accuracy,speed:c.speed==null?null:Math.max(0,c.speed),at:now};
+ betaPilotSamples.push(sample);betaPilotSamples=betaPilotSamples.filter(s=>now-s.at<=180000).slice(-50);
+ if(now-betaPilotLastSend>=10000){betaPilotLastSend=now;betaSendPilotSample(sample);}
+ betaUpdateArrivalIndicators();
+}
+async function betaSendPilotSample(sample){
+ if(!betaPilotSpotId)return;
+ const {data,error}=await db.rpc('parking_beta_pilot_ping',{p_spot_id:betaPilotSpotId,p_lat:sample.lat,p_lng:sample.lng,p_accuracy:sample.accuracy,p_speed:sample.speed});
+ if(error){console.warn('PILOT GPS',error);return;}
+ if(data?.near&&!betaArrivalRegistered&&!betaArrivalPollBusy){
+   betaArrivalPollBusy=true;
+   try{await betaRegisterArrival(betaPilotSpotId);}finally{betaArrivalPollBusy=false;}
+ }
+ if(data?.near&&betaPilotConfirmed&&!betaPilotConfirmBusy){
+   betaPilotConfirmBusy=true;
+   try{const result=await db.rpc('parking_beta_arrival_answer',{p_spot_id:betaPilotSpotId,p_answer:true});
+     if(result.data?.status==='approved'){betaPilotConfirmed=false;toast('💰 Stationnement vérifié : récompense fictive attribuée.');await betaLoadNotices();await loadCredits();await loadSpots();}
+   }finally{betaPilotConfirmBusy=false;}
+ }
+}
+async function betaRegisterArrival(spotId){
+ if(!currentUser||!spotId)return;
+ const {data,error}=await db.rpc('parking_beta_arrival_open',{p_spot_id:spotId});
+ if(error){console.warn('ARRIVAL OPEN',error);toast('Arrivée : '+error.message);return;}
+ if(data?.ok){betaPilotSpotId=spotId;betaArrivalRegistered=true;betaShowArrival();}
+}
+function betaShowArrival(){
+ document.getElementById('betaArrival').classList.remove('hidden');
+ document.getElementById('betaTipBox').classList.add('hidden');
+ betaUpdateArrivalIndicators();
+}
+function betaUpdateArrivalIndicators(){
+ const box=document.getElementById('betaArrivalIndicators');if(!box)return;
+ if(!betaPilotSpotId){box.textContent='Choisis une place sur la carte.';return;}
+ const samples=betaPilotSamples;
+ const recent=samples.filter(s=>Date.now()-s.at<45000);
+ const lowSpeed=recent.filter(s=>s.speed!==null&&s.speed<0.8).length;
+ box.textContent='📍 '+recent.length+' mesure(s) GPS récentes · '+lowSpeed+' mesure(s) de vitesse proche de 0. La décision sera vérifiée côté serveur.';
+}
+async function betaDriverAnswer(answer){
+ if(!betaPilotSpotId)return toast('Sélectionne d’abord une place.');
+ if(answer===true)betaPilotConfirmed=true;
+ if(answer===true&&!betaArrivalRegistered){await betaRegisterArrival(betaPilotSpotId);if(!betaArrivalRegistered)return;}
+ if(answer===null&&!betaArrivalRegistered){toast('Reste près de la place : le suivi GPS continue.');document.getElementById('betaTipBox').classList.remove('hidden');return;}
+ const {data,error}=await db.rpc('parking_beta_arrival_answer',{p_spot_id:betaPilotSpotId,p_answer:answer});
+ if(error){console.error('ANSWER',error);return toast('Vérification : '+error.message);}
+ const status=data?.status;
+ if(status==='approved'){toast('✅ Stationnement validé : crédits fictifs attribués.');}
+ else if(status==='pending'){toast('🔎 Vérification en cours : pas de crédit pour le moment.');}
+ else if(status==='rejected'){betaPilotConfirmed=false;toast('❌ Stationnement non validé.');}
+ else toast('Demande enregistrée.');
+ document.getElementById('betaTipBox').classList.remove('hidden');
+ await betaLoadNotices();await loadCredits();await loadSpots();
+}
+async function betaTip(cents){
+ if(cents===-1){const val=prompt('Montant fictif en euros (0 à 10) :','1');if(val===null)return;const amount=Number(val.replace(',','.'));if(!Number.isFinite(amount)||amount<0||amount>10)return toast('Montant entre 0 et 10 €');cents=Math.round(amount*100);}
+ if(!betaPilotSpotId)return;
+ const {data,error}=await db.rpc('parking_beta_tip_intent',{p_spot_id:betaPilotSpotId,p_amount_cents:cents});
+ if(error){toast('Pourboire : '+error.message);return;}
+ document.getElementById('betaTipResult').textContent=cents?'❤️ Pourboire fictif de '+formatMoney(cents)+' enregistré (aucun paiement réel).':'Aucun pourboire, merci !';
+}
+function betaCloseArrival(){document.getElementById('betaArrival').classList.add('hidden');}
 
 checkSession();
 
