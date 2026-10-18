@@ -428,6 +428,22 @@ input,select{
 #betaNavPanel .navActions{margin-top:6px}
 #betaNavPanel .navActions button{font-size:12px;padding:9px 4px}
 
+/* LOT 5 — comparaison des places, panneau compact et accessible en navigation */
+.betaAltSection{border:1px solid #c8dcf5;border-radius:13px;background:#f9fbff;padding:9px;margin:8px 0;font-size:12px}
+.betaAltHead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.betaAltHead strong{font-size:14px;color:#123354}
+.betaAltHead button{width:auto!important;margin:0!important;padding:6px 10px!important}
+.betaAltNotice{font-size:11px;color:#52647b;margin:6px 0}
+.betaAltList{display:none;max-height:215px;overflow-y:auto;overscroll-behavior:contain;gap:7px;flex-direction:column}
+.betaAltSection.open .betaAltList{display:flex}
+.betaAltCard{border:1px solid #dce5f2;border-radius:10px;background:#fff;padding:9px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+.betaAltCard b{display:block;font-size:12px;color:#102b48}
+.betaAltCard small{display:block;color:#59697d;line-height:1.5}
+.betaAltCard button{width:auto!important;min-width:75px;margin:0!important;padding:8px!important;background:#0b67d7!important;color:white!important;border-radius:9px!important}
+.betaAltActions{display:flex;gap:7px}
+.betaAltActions button{flex:1;padding:8px!important}
+#betaNavPanel{max-height:75dvh;overflow-y:auto;overscroll-behavior:contain}
+@media(max-height:720px){#betaNavPanel{max-height:66dvh}}
 </style>
 </head>
 
@@ -738,6 +754,12 @@ input,select{
   <div id="betaNavMetrics"><div><strong id="betaNavRemain">—</strong>Restant</div><div><strong id="betaNavETA">—</strong>Durée estimée</div><div><strong id="betaNavAccuracy">—</strong>GPS ±</div></div>
   <div id="betaNavStatus">Préparation de l’itinéraire…</div>
   <div id="betaNavParking"><strong>🅿️ Assistant Parking Beta</strong><span id="betaNavParkingInfo">Recherche de la destination…</span><button class="secondary" onclick="betaNavParkingActions()">⚡ Actions pendant le trajet</button><div id="betaNavActionDetails" class="hidden" style="margin-top:8px"></div></div>
+  <section id="betaAltSection" class="betaAltSection">
+    <div class="betaAltHead"><strong>🅿️ Places alternatives</strong><button class="secondary" onclick="betaAltSync()">↻ Actualiser</button></div>
+    <div id="betaAltNotice" class="betaAltNotice">Comparaison des places proches…</div>
+    <div id="betaAltList" class="betaAltList"></div>
+    <div class="betaAltActions"><button class="secondary" onclick="betaAltToggle()" id="betaAltToggleButton">Voir les alternatives</button><button class="secondary hidden" id="betaAltDemoOccupied" onclick="betaAltDemoUnavailable()">🧪 Place occupée</button></div>
+  </section>
   <div id="betaNavDemoArrival" class="hidden">🧪 Destination fictive atteinte : détection test réussie. Aucune confirmation ni récompense réelle.</div>
   <div id="betaNavDemoNotice" class="hidden" style="font-size:12px;color:#92400e;margin-top:6px">🧪 Simulation locale uniquement : aucune place, validation ou récompense.</div>
   <div id="betaNavArrival" class="hidden" role="status">📍 Zone d'arrivée atteinte. Vérifie que tu es réellement garé.
@@ -1798,6 +1820,7 @@ async function loadSpots(){
   allSpots=data||[];
 
   renderSpots();
+  if(betaNavActive)betaAltRefresh(false);
 }
 
 function renderSpots(custom=null){
@@ -2173,6 +2196,87 @@ let betaNavSimSpeed=0;
 let betaNavLastSimTick=0;
 let betaNavActionOpen=false;
 let betaNavDemoArrived=false;
+let betaAltOpen=false;
+let betaAltDemoUnavailableFlag=false;
+let betaAltDemoPoints=[];
+let betaAltLastRefresh=0;
+let betaAltUnavailableWarned=false;
+
+/* LOT 5 — alternatives: calculs locaux, données publiques de places déjà visibles. */
+function betaAltDemoBuild(){
+ const p=userPosition;if(!p)return [];
+ const c=Math.cos(p.lat*Math.PI/180)||.65;
+ return [
+  {id:'demo-alt-1',latitude:p.lat+.0031,longitude:p.lng+.0037/c,created_at:new Date(Date.now()-120000).toISOString(),status:'available',beta_demo:true,kind:'Gratuite · standard'},
+  {id:'demo-alt-2',latitude:p.lat-.0022,longitude:p.lng+.0046/c,created_at:new Date(Date.now()-300000).toISOString(),status:'available',beta_demo:true,kind:'À vérifier · standard'},
+  {id:'demo-alt-3',latitude:p.lat+.0018,longitude:p.lng-.0043/c,created_at:new Date(Date.now()-480000).toISOString(),status:'available',beta_demo:true,kind:'Gratuite · standard'}
+ ];
+}
+function betaAltToggle(){
+ betaAltOpen=!betaAltOpen;
+ document.getElementById('betaAltSection').classList.toggle('open',betaAltOpen);
+ document.getElementById('betaAltToggleButton').textContent=betaAltOpen?'Masquer les alternatives':'Voir les alternatives';
+ if(betaAltOpen)betaAltRefresh(true);
+}
+async function betaAltSync(){
+ if(!betaNavIsDemo)await loadSpots();
+ betaAltRefresh(true);
+}
+function betaAltRefresh(force=true){
+ if(!betaNavActive||!betaNavDestination)return;
+ const now=Date.now();if(!force&&now-betaAltLastRefresh<5000)return;betaAltLastRefresh=now;
+ const info=document.getElementById('betaAltNotice'),list=document.getElementById('betaAltList');
+ const current=betaNavCurrentPosition()||userPosition;if(!current)return;
+ if(betaNavIsDemo&&!betaAltDemoPoints.length)betaAltDemoPoints=betaAltDemoBuild();
+ const candidates=(betaNavIsDemo?betaAltDemoPoints:allSpots).filter(s=>{
+  if(String(s.id)===String(betaNavDestination.spotId))return false;
+  if(!Number.isFinite(Number(s.latitude))||!Number.isFinite(Number(s.longitude)))return false;
+  if(!betaNavIsDemo&&(s.status!=='available'||(s.expires_at&&Date.parse(s.expires_at)<=now)))return false;
+  return true;
+ }).map(s=>({...s,meters:distanceMeters(current.lat,current.lng,Number(s.latitude),Number(s.longitude))}))
+  .filter(s=>s.meters<5000).sort((a,b)=>a.meters-b.meters).slice(0,5);
+ list.replaceChildren();
+ if(!candidates.length){info.textContent='Aucune autre place signalée dans un rayon de 5 km. Actualise ou conserve ta destination.';return;}
+ info.textContent=(betaNavIsDemo?(betaAltDemoUnavailableFlag?'⚠️ Place test occupée · ':'🧪 Alternatives fictives — aucun signalement créé · '):'')+candidates.length+' option(s) à comparer · distances à vol d’oiseau';
+ candidates.forEach((s,i)=>{
+  const card=document.createElement('div');card.className='betaAltCard';
+  const content=document.createElement('div');
+  const title=document.createElement('b');title.textContent=(betaNavIsDemo?'🧪 Place test ':'🅿️ Place ')+(i+1)+' · '+betaNavMeters(s.meters);
+  const details=document.createElement('small');
+  const age=Number.isFinite(Date.parse(s.created_at))?Math.max(0,Math.round((now-Date.parse(s.created_at))/60000)):null;
+  details.textContent=(s.beta_demo?s.kind:'Signalée'+(age===null?'':' il y a '+age+' min'))+' · trajet routier recalculé après sélection';
+  const button=document.createElement('button');button.type='button';button.textContent='Choisir';
+  button.addEventListener('click',()=>betaAltChoose(s));
+  content.append(title,details);card.append(content,button);list.appendChild(card);
+ });
+ if(!betaNavIsDemo){
+  const active=allSpots.some(s=>String(s.id)===String(betaNavDestination.spotId)&&s.status==='available'&&(!s.expires_at||Date.parse(s.expires_at)>now));
+  if(!active&&!betaAltUnavailableWarned){betaAltUnavailableWarned=true;info.textContent='⚠️ Destination absente des places disponibles : choisis une alternative ou vérifie son statut.';toast('⚠️ Ta place n’apparaît plus comme disponible. Consulte les alternatives.');}
+ }
+}
+async function betaAltChoose(s){
+ if(!betaNavActive)return;
+ if(betaNavIsDemo&&!s.beta_demo)return toast('Mode test : seules les destinations fictives sont autorisées.');
+ if(!betaNavIsDemo&&s.beta_demo)return toast('Destination de démonstration interdite en trajet réel.');
+ if(!betaNavIsDemo&&!confirm('Changer la destination vers cette place ?'))return;
+ const next={lat:Number(s.latitude),lng:Number(s.longitude),spotId:s.id};
+ betaNavStopSimulation();
+ if(betaNavIsDemo){if(betaNavDemoMarker)map.removeLayer(betaNavDemoMarker);betaNavDemoMarker=L.marker([next.lat,next.lng]).addTo(map).bindPopup('🧪 Destination fictive — aucun gain');}
+ betaNavDestination=next;betaNavRouteToken++;betaNavRouteCoords=[];betaNavLastOrigin=null;betaNavDistance=null;betaNavDuration=null;betaNavLastRequest=0;
+ if(betaNavLine){map.removeLayer(betaNavLine);betaNavLine=null;}
+ betaAltDemoUnavailableFlag=false;betaAltUnavailableWarned=false;
+ betaNavSetStatus('🔄 Calcul de l’itinéraire vers la nouvelle place…');
+ betaAltRefresh(true);
+ await betaNavCalculateRoute(true);
+}
+function betaAltDemoUnavailable(){
+ if(!betaNavActive||!betaNavIsDemo)return;
+ betaAltDemoUnavailableFlag=true;
+ document.getElementById('betaAltSection').classList.add('open');betaAltOpen=true;
+ document.getElementById('betaAltToggleButton').textContent='Masquer les alternatives';
+ betaAltRefresh(true);
+ toast('🧪 Place fictive devenue indisponible. Choisis une alternative : aucun gain possible.');
+}
 function betaNavMeters(n){return n>=1000?(n/1000).toFixed(1).replace('.',',')+' km':Math.round(n)+' m';}
 function betaNavSetStatus(message){const el=document.getElementById('betaNavStatus');if(el)el.textContent=message;}
 async function betaStartNavigation(){
@@ -2198,7 +2302,12 @@ function betaNavShowPanel(){
  document.getElementById('betaNavDemoArrival').classList.add('hidden');
  betaNavDemoArrived=false;betaNavActionOpen=false;
  document.getElementById('betaNavActionDetails').classList.add('hidden');
+ betaAltOpen=false;betaAltDemoUnavailableFlag=false;betaAltUnavailableWarned=false;
+ document.getElementById('betaAltSection').classList.remove('open');
+ document.getElementById('betaAltDemoOccupied').classList.toggle('hidden',!betaNavIsDemo);
+ document.getElementById('betaAltToggleButton').textContent='Voir les alternatives';
  betaNavRefreshCockpit();
+ betaAltRefresh();
 }
 async function betaStartDemoNavigation(){
  if(!userPosition)return toast('Attends la localisation GPS avant de lancer le test.');
@@ -2397,7 +2506,7 @@ function betaNavOpenOtherGPS(){
 }
 function betaStopNavigation(){
  betaNavStopSimulation();
- betaNavActive=false;betaNavIsDemo=false;betaNavFollowing=true;betaNavRouteToken++;betaNavDestination=null;betaNavDistance=null;betaNavDuration=null;betaNavLastOrigin=null;betaNavRouteCoords=[];
+ betaNavActive=false;betaNavIsDemo=false;betaNavFollowing=true;betaAltOpen=false;betaAltDemoUnavailableFlag=false;betaAltDemoPoints=[];betaNavRouteToken++;betaNavDestination=null;betaNavDistance=null;betaNavDuration=null;betaNavLastOrigin=null;betaNavRouteCoords=[];
  if(betaNavLine){map.removeLayer(betaNavLine);betaNavLine=null;}
  if(betaNavDemoMarker){map.removeLayer(betaNavDemoMarker);betaNavDemoMarker=null;}
  document.getElementById('betaNavPanel').classList.add('hidden');
