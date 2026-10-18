@@ -410,6 +410,24 @@ input,select{
 .betaPill{padding:9px 12px;border-radius:12px;background:#edf4ff;font-weight:700;margin:8px 0}
 .betaTipGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .betaTipGrid button{font-size:14px;padding:12px 4px}
+
+/* LOT 4 : cockpit de navigation et informations parking (aucune validation serveur) */
+#betaNavPanel{max-width:520px;bottom:calc(8px + env(safe-area-inset-bottom));padding:12px;border-color:#1677ff}
+#betaNavCockpit{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin:8px 0;background:#0c243f;color:white;padding:13px;border-radius:14px}
+#betaNavTurn{font-weight:800;font-size:17px;line-height:1.2}
+#betaNavTurnDistance{color:#cde4ff;font-size:12px;margin-top:5px}
+#betaNavSpeed{font-size:27px;font-weight:900;text-align:center;min-width:65px}
+#betaNavSpeed small{display:block;font-size:10px;font-weight:500;color:#cde4ff}
+#betaNavMetrics{display:flex;gap:8px;margin:8px 0}
+#betaNavMetrics>div{flex:1;border-radius:10px;background:#eef4ff;padding:9px 6px;text-align:center;font-size:11px;color:#526078}
+#betaNavMetrics strong{display:block;color:#122846;font-size:17px}
+#betaNavParking{border:1px solid #d5e7ff;background:#f4f9ff;border-radius:12px;padding:10px;font-size:12px;margin:8px 0}
+#betaNavParking strong{display:block;font-size:14px;margin-bottom:4px}
+#betaNavParking button{width:100%;margin-top:7px;padding:9px;font-size:12px}
+#betaNavDemoArrival{background:#e7f7ee;border:1px solid #8ad7aa;border-radius:10px;padding:9px;margin-top:8px;font-size:12px}
+#betaNavPanel .navActions{margin-top:6px}
+#betaNavPanel .navActions button{font-size:12px;padding:9px 4px}
+
 </style>
 </head>
 
@@ -713,7 +731,14 @@ input,select{
 
 <div id="betaNavPanel" class="hidden" aria-live="polite">
   <strong>🧭 Navigation Parking Beta · Bêta</strong>
+  <div id="betaNavCockpit">
+    <div><div id="betaNavTurn">⬆️ Suivez l’itinéraire</div><div id="betaNavTurnDistance">Calcul des indications…</div></div>
+    <div id="betaNavSpeed">—<small>km/h</small></div>
+  </div>
+  <div id="betaNavMetrics"><div><strong id="betaNavRemain">—</strong>Restant</div><div><strong id="betaNavETA">—</strong>Durée estimée</div><div><strong id="betaNavAccuracy">—</strong>GPS ±</div></div>
   <div id="betaNavStatus">Préparation de l’itinéraire…</div>
+  <div id="betaNavParking"><strong>🅿️ Assistant Parking Beta</strong><span id="betaNavParkingInfo">Recherche de la destination…</span><button class="secondary" onclick="betaNavParkingActions()">⚡ Actions pendant le trajet</button><div id="betaNavActionDetails" class="hidden" style="margin-top:8px"></div></div>
+  <div id="betaNavDemoArrival" class="hidden">🧪 Destination fictive atteinte : détection test réussie. Aucune confirmation ni récompense réelle.</div>
   <div id="betaNavDemoNotice" class="hidden" style="font-size:12px;color:#92400e;margin-top:6px">🧪 Simulation locale uniquement : aucune place, validation ou récompense.</div>
   <div id="betaNavArrival" class="hidden" role="status">📍 Zone d'arrivée atteinte. Vérifie que tu es réellement garé.
     <button class="primary" onclick="betaNavArrived()">🚘 Confirmer mon stationnement</button>
@@ -2144,6 +2169,10 @@ let betaNavSimMarker=null;
 let betaNavSimIndex=0;
 let betaNavSimProgress=0;
 let betaNavSimPosition=null;
+let betaNavSimSpeed=0;
+let betaNavLastSimTick=0;
+let betaNavActionOpen=false;
+let betaNavDemoArrived=false;
 function betaNavMeters(n){return n>=1000?(n/1000).toFixed(1).replace('.',',')+' km':Math.round(n)+' m';}
 function betaNavSetStatus(message){const el=document.getElementById('betaNavStatus');if(el)el.textContent=message;}
 async function betaStartNavigation(){
@@ -2166,6 +2195,10 @@ function betaNavShowPanel(){
  document.getElementById('betaNavDemoNotice').classList.toggle('hidden',!betaNavIsDemo);
  document.getElementById('betaNavSimButton').classList.toggle('hidden',!betaNavIsDemo);
  document.getElementById('betaNavArrival').classList.add('hidden');
+ document.getElementById('betaNavDemoArrival').classList.add('hidden');
+ betaNavDemoArrived=false;betaNavActionOpen=false;
+ document.getElementById('betaNavActionDetails').classList.add('hidden');
+ betaNavRefreshCockpit();
 }
 async function betaStartDemoNavigation(){
  if(!userPosition)return toast('Attends la localisation GPS avant de lancer le test.');
@@ -2211,6 +2244,77 @@ async function betaNavCalculateRoute(force=false){
  finally{betaNavRequestInFlight=false;}
 }
 function betaNavCurrentPosition(){return betaNavIsDemo&&betaNavSimPosition?betaNavSimPosition:userPosition;}
+function betaNavParkingActions(){
+ betaNavActionOpen=!betaNavActionOpen;
+ const el=document.getElementById('betaNavActionDetails');
+ el.classList.toggle('hidden',!betaNavActionOpen);
+ betaNavRefreshParking();
+}
+function betaNavRefreshParking(){
+ const info=document.getElementById('betaNavParkingInfo');
+ const actions=document.getElementById('betaNavActionDetails');
+ if(!info||!actions)return;
+ const p=betaNavCurrentPosition();
+ const d=p&&betaNavDestination?Math.round(distanceMeters(p.lat,p.lng,betaNavDestination.lat,betaNavDestination.lng)):null;
+ if(betaNavIsDemo){
+  info.textContent='🧪 Mode démonstration · place fictive · '+(d===null?'distance inconnue':betaNavMeters(d)+' à vol d’oiseau')+'. Aucun gain ni stationnement.';
+  actions.textContent='🧪 Tu peux simuler le trajet, tester l’approche et observer les informations. La confirmation réelle reste désactivée.';
+ }else{
+  info.textContent='📍 Place sélectionnée · '+(d===null?'GPS en attente':betaNavMeters(d)+' à vol d’oiseau')+'. Disponibilité non garantie pendant le trajet.';
+  actions.textContent='📍 À l’approche, Parking Beta vérifie la distance et la précision GPS avant de proposer la confirmation. Les récompenses ne sont jamais déclenchées par ce panneau.';
+ }
+}
+function betaNavRefreshCockpit(){
+ if(!betaNavActive)return;
+ const pos=betaNavCurrentPosition();if(!pos)return;
+ const straight=distanceMeters(pos.lat,pos.lng,betaNavDestination.lat,betaNavDestination.lng);
+ const remaining=betaNavRemainingRouteMeters(pos);
+ const meters=remaining??straight;
+ const eta=betaNavDistance>0&&betaNavDuration!=null?Math.max(0,Math.round(betaNavDuration*meters/betaNavDistance/60)):null;
+ document.getElementById('betaNavRemain').textContent=betaNavMeters(meters);
+ document.getElementById('betaNavETA').textContent=eta===null?'—':eta+' min';
+ document.getElementById('betaNavAccuracy').textContent=Number.isFinite(pos.accuracy)?Math.round(pos.accuracy)+' m':'—';
+ const speed=betaNavIsDemo?betaNavSimSpeed:Number.isFinite(pos.speed)?Math.max(0,pos.speed*3.6):null;
+ document.getElementById('betaNavSpeed').innerHTML=(speed===null?'—':Math.round(speed))+'<small>km/h</small>';
+ const turn=betaNavNextTurn(pos);
+ document.getElementById('betaNavTurn').textContent=turn.title;
+ document.getElementById('betaNavTurnDistance').textContent=turn.detail;
+ betaNavRefreshParking();
+}
+function betaNavRemainingRouteMeters(pos){
+ const coords=betaNavRouteCoords;if(coords.length<2)return null;
+ let best=Infinity,bestIndex=0,bestT=0;
+ for(let i=0;i<coords.length-1;i++){
+  const a=coords[i],b=coords[i+1];
+  const dx=(b[1]-a[1])*Math.cos(pos.lat*Math.PI/180),dy=b[0]-a[0];
+  const px=(pos.lng-a[1])*Math.cos(pos.lat*Math.PI/180),py=pos.lat-a[0];
+  const t=Math.max(0,Math.min(1,(px*dx+py*dy)/(dx*dx+dy*dy||1)));
+  const dist=(px-t*dx)**2+(py-t*dy)**2;
+  if(dist<best){best=dist;bestIndex=i;bestT=t;}
+ }
+ let meters=distanceMeters(coords[bestIndex][0],coords[bestIndex][1],coords[bestIndex+1][0],coords[bestIndex+1][1])*(1-bestT);
+ for(let i=bestIndex+1;i<coords.length-1;i++)meters+=distanceMeters(coords[i][0],coords[i][1],coords[i+1][0],coords[i+1][1]);
+ return meters;
+}
+function betaNavNextTurn(pos){
+ const coords=betaNavRouteCoords;
+ if(coords.length<3)return {title:'⬆️ Suivez la route',detail:'Itinéraire en cours de calcul'};
+ let idx=0,best=Infinity;
+ for(let i=0;i<coords.length;i++){
+  const d=distanceMeters(pos.lat,pos.lng,coords[i][0],coords[i][1]);
+  if(d<best){best=d;idx=i;}
+ }
+ let dist=0;
+ for(let i=Math.min(idx,coords.length-2);i<coords.length-2;i++){
+  dist+=distanceMeters(coords[i][0],coords[i][1],coords[i+1][0],coords[i+1][1]);
+  const p=coords[i],q=coords[i+1],r=coords[i+2];
+  const a=Math.atan2((q[1]-p[1])*Math.cos(q[0]*Math.PI/180),q[0]-p[0]);
+  const b=Math.atan2((r[1]-q[1])*Math.cos(q[0]*Math.PI/180),r[0]-q[0]);
+  let delta=(b-a)*180/Math.PI;while(delta>180)delta-=360;while(delta< -180)delta+=360;
+  if(Math.abs(delta)>42&&dist>18){return {title:delta>0?'↪️ Tournez à droite':'↩️ Tournez à gauche',detail:'Dans environ '+betaNavMeters(dist)+' · indication expérimentale'};}
+ }
+ return {title:'⬆️ Continuez vers la place',detail:'Destination à '+betaNavMeters(distanceMeters(pos.lat,pos.lng,betaNavDestination.lat,betaNavDestination.lng))};
+}
 function betaNavLocationUpdated(){
  if(!betaNavActive||!betaNavDestination)return;
  const pos=betaNavCurrentPosition();if(!pos)return;
@@ -2218,6 +2322,9 @@ function betaNavLocationUpdated(){
  const accuracy=pos.accuracy||999;
  const near=straight<=50&&accuracy<=50;
  document.getElementById('betaNavArrival').classList.toggle('hidden',!near||betaNavIsDemo);
+ if(betaNavIsDemo&&betaNavSimPosition&&straight<=50){betaNavDemoArrived=true;}
+ document.getElementById('betaNavDemoArrival').classList.toggle('hidden',!betaNavIsDemo||!betaNavDemoArrived);
+ betaNavRefreshCockpit();
  if(betaNavIsDemo&&betaNavSimPosition){
   betaNavSetStatus('🧪 Simulation · '+betaNavMeters(straight)+' avant la destination · aucune validation possible');
  }else if(near){
@@ -2225,14 +2332,14 @@ function betaNavLocationUpdated(){
  }else if(betaNavDistance!=null){
   betaNavSetStatus('🚗 Itinéraire : '+betaNavMeters(betaNavDistance)+' · '+Math.max(1,Math.round(betaNavDuration/60))+' min · destination à '+betaNavMeters(straight));
  }else betaNavSetStatus('📍 Destination à '+betaNavMeters(straight));
- if(betaNavFollowing)map.setView([pos.lat,pos.lng],Math.max(map.getZoom(),17),{animate:true});
+ if(betaNavFollowing){map.panTo([pos.lat,pos.lng],{animate:false});if(map.getZoom()<17)map.setZoom(17,{animate:false});}
  if(!betaNavIsDemo)betaNavCalculateRoute(false);
 }
 function betaNavFollow(){
  if(!betaNavActive)return;
  betaNavFollowing=true;
  const pos=betaNavCurrentPosition();
- if(pos)map.setView([pos.lat,pos.lng],17,{animate:true});
+ if(pos)map.setView([pos.lat,pos.lng],17,{animate:false});
 }
 function betaRecenterRoute(){
  if(!betaNavActive)return;
@@ -2243,7 +2350,8 @@ function betaRecenterRoute(){
 function betaNavStopSimulation(){
  if(betaNavSimTimer){clearInterval(betaNavSimTimer);betaNavSimTimer=null;}
  if(betaNavSimMarker){map.removeLayer(betaNavSimMarker);betaNavSimMarker=null;}
- betaNavSimPosition=null;betaNavSimIndex=0;betaNavSimProgress=0;
+ betaNavSimPosition=null;betaNavSimIndex=0;betaNavSimProgress=0;betaNavSimSpeed=0;betaNavDemoArrived=false;
+ const demoArrival=document.getElementById('betaNavDemoArrival');if(demoArrival)demoArrival.classList.add('hidden');
  const b=document.getElementById('betaNavSimButton');if(b)b.textContent='▶ Simuler le trajet';
 }
 function betaNavToggleSimulation(){
@@ -2253,13 +2361,16 @@ function betaNavToggleSimulation(){
  if(betaNavSimIndex>=betaNavRouteCoords.length-1){betaNavStopSimulation();}
  if(!betaNavSimMarker){
   betaNavSimPosition={lat:betaNavRouteCoords[0][0],lng:betaNavRouteCoords[0][1],accuracy:5};
-  betaNavSimMarker=L.circleMarker([betaNavSimPosition.lat,betaNavSimPosition.lng],{radius:10,color:'#fff',weight:3,fillColor:'#1264d7',fillOpacity:1}).addTo(map).bindTooltip('🚗 Pilote fictif');
+  betaNavSimMarker=L.marker([betaNavSimPosition.lat,betaNavSimPosition.lng],{icon:L.divIcon({className:'',html:'<div style="font-size:25px;filter:drop-shadow(0 2px 3px #555)">🚙</div>',iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map).bindTooltip('Pilote fictif');
  }
  betaNavFollowing=true;
  document.getElementById('betaNavSimButton').textContent='⏸ Pause simulation';
+ betaNavLastSimTick=performance.now();
  betaNavSimTimer=setInterval(()=>{
   if(!betaNavActive||!betaNavIsDemo){betaNavStopSimulation();return;}
-  let remaining=12; // Environ 12 m par seconde, purement visuel.
+  const now=performance.now(),delta=Math.min(.12,Math.max(0,(now-betaNavLastSimTick)/1000));betaNavLastSimTick=now;
+  let remaining=11*delta; // 39,6 km/h ; interpolation fluide, strictement locale.
+  betaNavSimSpeed=39.6;
   while(remaining>0&&betaNavSimIndex<betaNavRouteCoords.length-1){
    const a=betaNavRouteCoords[betaNavSimIndex],b=betaNavRouteCoords[betaNavSimIndex+1];
    const segment=distanceMeters(a[0],a[1],b[0],b[1]);
@@ -2272,8 +2383,8 @@ function betaNavToggleSimulation(){
   const a=betaNavRouteCoords[betaNavSimIndex],b=betaNavRouteCoords[Math.min(betaNavSimIndex+1,betaNavRouteCoords.length-1)];
   const lat=a[0]+(b[0]-a[0])*betaNavSimProgress,lng=a[1]+(b[1]-a[1])*betaNavSimProgress;
   betaNavSimPosition={lat,lng,accuracy:5};betaNavSimMarker.setLatLng([lat,lng]);betaNavLocationUpdated();
-  if(end){clearInterval(betaNavSimTimer);betaNavSimTimer=null;document.getElementById('betaNavSimButton').textContent='↻ Rejouer';betaNavSetStatus('🧪 Simulation terminée · aucun stationnement validé');}
- },1000);
+  if(end){clearInterval(betaNavSimTimer);betaNavSimTimer=null;betaNavSimSpeed=0;document.getElementById('betaNavSimButton').textContent='↻ Rejouer';betaNavSetStatus('🧪 Simulation terminée · aucun stationnement validé');betaNavRefreshCockpit();}
+ },50);
 }
 function betaNavOpenOtherGPS(){
  // La destination fictive n'est pas un signalement : aucun lien externe ne doit dépendre de selectedSpot.
@@ -2291,6 +2402,7 @@ function betaStopNavigation(){
  if(betaNavDemoMarker){map.removeLayer(betaNavDemoMarker);betaNavDemoMarker=null;}
  document.getElementById('betaNavPanel').classList.add('hidden');
  document.getElementById('betaNavArrival').classList.add('hidden');
+ document.getElementById('betaNavDemoArrival').classList.add('hidden');
  closeNavSheet();
 }
 function betaNavArrived(){
