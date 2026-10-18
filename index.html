@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -358,6 +359,10 @@ input,select{
 .route{margin-top:16px}
 .smallNote{text-align:center;color:#888;font-size:11px;margin-top:10px}
 
+#betaNavPanel{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:3900;background:#fff;border:2px solid #007aff;border-radius:16px;padding:12px;box-shadow:0 5px 20px #0003;max-width:460px;margin:auto}
+#betaNavPanel .navActions{display:flex;gap:8px;margin-top:8px}
+#betaNavPanel .navActions button{flex:1;margin:0;padding:10px;font-size:13px}
+#betaNavStatus{font-size:13px;color:#444;margin-top:4px}
 .navChoice{
   display:flex;
   align-items:center;
@@ -667,6 +672,10 @@ input,select{
     <button class="sheetClose" onclick="closeNavSheet()">✕</button>
   </div>
 
+  <button class="primary navChoice" onclick="betaStartNavigation()">
+    <span class="navIcon">🧭</span> Navigation Parking Beta (test)
+  </button>
+
   <button class="secondary navChoice" onclick="navigateWith('apple')">
     <span class="navIcon">🗺️</span> Plans
   </button>
@@ -679,6 +688,19 @@ input,select{
     <span class="navIcon">🚙</span> Waze
   </button>
 
+</div>
+
+<div id="betaNavPanel" class="hidden" aria-live="polite">
+  <strong>🧭 Navigation Parking Beta · Bêta</strong>
+  <div id="betaNavStatus">Préparation de l’itinéraire…</div>
+  <div class="navActions">
+    <button class="secondary" onclick="betaRecenterRoute()">📍 Recentrer</button>
+    <button class="secondary" onclick="betaStopNavigation()">✕ Arrêter</button>
+  </div>
+  <div class="navActions">
+    <button class="secondary" onclick="openNavigationSheet()">Autres GPS</button>
+    <button class="primary" onclick="betaNavArrived()">🚘 Je suis arrivé</button>
+  </div>
 </div>
 
 <!-- GARÉ -->
@@ -1148,6 +1170,7 @@ function startLocation(){
       }
 
       if(selectedSpot){updateDriverDistance();}
+      betaNavLocationUpdated();
       betaOnLocation(position);
       evaluateAutoWatch();
     },
@@ -2076,6 +2099,84 @@ function distanceMeters(
   );
 }
 
+/* NAVIGATION INTERNE - LOT 1 BETA : service de routage public de demonstration. */
+let betaNavActive=false;
+let betaNavDestination=null;
+let betaNavLine=null;
+let betaNavLastRequest=0;
+let betaNavRequestInFlight=false;
+let betaNavLastOrigin=null;
+let betaNavDistance=null;
+let betaNavDuration=null;
+let betaNavRouteToken=0;
+function betaNavMeters(n){return n>=1000?(n/1000).toFixed(1).replace('.',',')+' km':Math.round(n)+' m';}
+function betaNavSetStatus(message){const el=document.getElementById('betaNavStatus');if(el)el.textContent=message;}
+async function betaStartNavigation(){
+ if(!selectedSpot)return toast('Sélectionne une place.');
+ if(!userPosition)return toast('Attends que le GPS trouve ta position.');
+ const lat=Number(selectedSpot.latitude),lng=Number(selectedSpot.longitude);
+ if(!Number.isFinite(lat)||!Number.isFinite(lng))return toast('Coordonnées de place invalides.');
+ betaStopNavigation();
+ betaNavActive=true;betaNavDestination={lat,lng,spotId:selectedSpot.id};
+ document.getElementById('betaNavPanel').classList.remove('hidden');
+ closeNavSheet();
+ betaNavSetStatus('Calcul du trajet…');
+ await betaNavCalculateRoute(true);
+}
+async function betaNavCalculateRoute(force=false){
+ if(!betaNavActive||!userPosition||!betaNavDestination||betaNavRequestInFlight)return;
+ const now=Date.now();
+ if(!force&&now-betaNavLastRequest<45000)return;
+ if(!force&&betaNavLastOrigin&&distanceMeters(userPosition.lat,userPosition.lng,betaNavLastOrigin.lat,betaNavLastOrigin.lng)<80)return;
+ betaNavRequestInFlight=true;betaNavLastRequest=now;
+ const origin={lat:userPosition.lat,lng:userPosition.lng};
+ const dest={...betaNavDestination};const token=betaNavRouteToken;
+ try{
+  const url=`https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);
+  let res;
+  try{res=await fetch(url,{signal:controller.signal});}finally{clearTimeout(timer);}
+  if(!res.ok)throw new Error('Routage indisponible');
+  const data=await res.json();
+  if(!betaNavActive||token!==betaNavRouteToken||String(betaNavDestination?.spotId)!==String(dest.spotId))return;
+  const route=data.routes?.[0];
+  if(!route||!route.geometry?.coordinates?.length)throw new Error('Aucun itinéraire routier');
+  const coords=route.geometry.coordinates.map(([lng,lat])=>[lat,lng]);
+  if(betaNavLine)map.removeLayer(betaNavLine);
+  betaNavLine=L.polyline(coords,{color:'#1677ff',weight:6,opacity:.85}).addTo(map);
+  betaNavDistance=route.distance;betaNavDuration=route.duration;
+  betaNavLastOrigin=origin;
+  map.fitBounds(betaNavLine.getBounds(),{padding:[40,40],maxZoom:16});
+  betaNavLocationUpdated();
+ }catch(e){if(betaNavActive){console.warn('BETA NAV',e);betaNavSetStatus('Itinéraire indisponible. Utilise Waze, Plans ou Google Maps.');}}
+ finally{betaNavRequestInFlight=false;}
+}
+function betaNavLocationUpdated(){
+ if(!betaNavActive||!betaNavDestination||!userPosition)return;
+ const straight=distanceMeters(userPosition.lat,userPosition.lng,betaNavDestination.lat,betaNavDestination.lng);
+ const accuracy=userPosition.accuracy||999;
+ if(straight<=50&&accuracy<=50){betaNavSetStatus('📍 Tu es près de la place. Confirme ton stationnement si tu es garé.');}
+ else if(betaNavDistance!=null){betaNavSetStatus('🚗 Trajet estimé : '+betaNavMeters(betaNavDistance)+' · '+Math.max(1,Math.round(betaNavDuration/60))+' min · À vol d’oiseau : '+betaNavMeters(straight));}
+ else betaNavSetStatus('📍 Distance à vol d’oiseau : '+betaNavMeters(straight));
+ betaNavCalculateRoute(false);
+}
+function betaRecenterRoute(){
+ if(userPosition)map.setView([userPosition.lat,userPosition.lng],17);
+ else toast('Position GPS indisponible.');
+}
+function betaStopNavigation(){
+ betaNavActive=false;betaNavRouteToken++;betaNavDestination=null;betaNavDistance=null;betaNavDuration=null;betaNavLastOrigin=null;
+ if(betaNavLine){map.removeLayer(betaNavLine);betaNavLine=null;}
+ document.getElementById('betaNavPanel').classList.add('hidden');
+}
+function betaNavArrived(){
+ if(!betaNavActive)return;
+ if(!userPosition||!betaNavDestination)return toast('GPS indisponible.');
+ const d=distanceMeters(userPosition.lat,userPosition.lng,betaNavDestination.lat,betaNavDestination.lng);
+ if(d>120||userPosition.accuracy>80)return toast('Tu es trop loin ou ton GPS manque de précision.');
+ betaStopNavigation();openParkedSheet();
+}
+
 /* NAVIGATION */
 
 function openNavigationSheet(){
@@ -2853,3 +2954,4 @@ checkSession();
 
 </body>
 </html>
+28
