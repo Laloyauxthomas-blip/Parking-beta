@@ -512,6 +512,32 @@ body.beta-driving #beta3dControls{display:flex}
 #beta3dNotice{position:fixed;left:12px;right:75px;top:calc(126px + env(safe-area-inset-top));z-index:4100;background:#0a2339d9;color:#d4ebf9;border-radius:12px;padding:7px 11px;font-size:11px;display:none;max-width:410px}
 body.beta-driving #beta3dNotice{display:block}
 body.beta-driving #betaNavPanel:not(.beta-compact) .betaAltList{max-height:240px}
+
+/* LOT 8 — assistant parking type tiroir bas et navigation plus lisible */
+#beta3dCar{width:64px;height:78px;filter:drop-shadow(0 5px 9px #001d4d80)}
+#beta3dCar svg{width:64px;height:78px}
+body.beta-driving #beta3dNotice{display:none!important}
+body.beta-driving #betaNavPanel{max-height:min(43dvh,360px)!important;overflow-y:auto!important;overscroll-behavior:contain;border-radius:23px 23px 19px 19px;padding:10px 11px 11px;box-shadow:0 10px 34px #0017298a}
+body.beta-driving #betaNavPanel.beta-compact{max-height:177px!important;overflow:hidden!important}
+body.beta-driving #betaNavPanel:not(.beta-compact) #betaNavParking,
+body.beta-driving #betaNavPanel:not(.beta-compact) #betaNavStatus,
+body.beta-driving #betaNavPanel:not(.beta-compact) #betaNavDemoNotice{display:none!important}
+body.beta-driving #betaNavPanel:not(.beta-compact) .betaAltSection{margin:6px 0 4px;padding:7px;border:0;background:transparent}
+body.beta-driving #betaNavPanel:not(.beta-compact) .betaAltList{display:flex!important;flex-direction:row!important;gap:8px;max-height:none!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x mandatory;padding:2px 0 7px;-webkit-overflow-scrolling:touch}
+body.beta-driving .betaAltCard{flex:0 0 172px!important;min-width:172px;max-width:172px;min-height:132px;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;gap:6px;scroll-snap-align:start;padding:10px!important;border-radius:14px!important}
+body.beta-driving .betaAltCard b{font-size:13px}
+body.beta-driving .betaAltCard small{font-size:11px;line-height:1.35}
+body.beta-driving .betaAltCard button{width:100%!important;min-height:33px!important;padding:7px!important}
+body.beta-driving .betaAltActions{margin-top:4px}
+body.beta-driving .betaAltHead strong{font-size:13px}
+body.beta-driving .betaAltNotice{font-size:10px;line-height:1.3}
+body.beta-driving #betaNavPanel:not(.beta-compact) .betaNavSecondaryControls{display:none!important}
+body.beta-driving #betaNavPanel:not(.beta-compact) #betaNavMetrics{display:none!important}
+body.beta-driving #betaNavPanel .betaAssistantToggle{font-size:14px!important}
+body.beta-driving #betaNavPanel .betaAssistantToggle span{font-size:11px!important}
+body.beta-driving #beta3dControls{top:calc(210px + env(safe-area-inset-top))}
+@media(max-height:720px){body.beta-driving #betaNavPanel{max-height:46dvh!important}}
+
 </style>
 </head>
 
@@ -814,7 +840,7 @@ body.beta-driving #betaNavPanel:not(.beta-compact) .betaAltList{max-height:240px
 </div>
 
 <div id="beta3dMap" aria-label="Carte GPS en perspective"></div>
-<div id="beta3dNotice">Vue 3D expérimentale · la précision et les bâtiments dépendent des données cartographiques.</div>
+<div id="beta3dNotice"></div>
 <div id="beta3dControls"><button onclick="betaNavFollow()" title="Suivre la voiture">➤</button><button onclick="beta3dTogglePerspective()" id="beta3dPitchButton" title="Changer la perspective">3D</button><button onclick="betaNavToggleAssistant()" title="Assistant parking">🅿️</button></div>
 
 <div id="betaNavPanel" class="hidden" aria-live="polite">
@@ -2356,7 +2382,7 @@ function betaAltDemoUnavailable(){
 let beta3dMap=null,beta3dMarker=null,beta3dReady=false,beta3dPitch=64,beta3dHeading=0,beta3dLastPosition=null,beta3dLastFrame=0,beta3dFailed=false;
 function beta3dCarElement(){
  const e=document.createElement('div');e.id='beta3dCar';
- e.innerHTML='<svg viewBox="0 0 56 85" xmlns="http://www.w3.org/2000/svg"><ellipse cx="28" cy="46" rx="24" ry="33" fill="#000" opacity=".28"/><rect x="9" y="5" width="38" height="74" rx="15" fill="#e8f4ff" stroke="#0d2b45" stroke-width="3"/><rect x="13" y="21" width="30" height="18" rx="6" fill="#2e637e"/><rect x="13" y="48" width="30" height="15" rx="5" fill="#2e637e"/><path d="M28 3 L18 17 L38 17 Z" fill="#00a6ff"/><rect x="12" y="8" width="7" height="5" rx="2" fill="#fef9c3"/><rect x="37" y="8" width="7" height="5" rx="2" fill="#fef9c3"/><rect x="12" y="70" width="8" height="4" rx="1" fill="#ff334d"/><rect x="36" y="70" width="8" height="4" rx="1" fill="#ff334d"/></svg>';
+ e.innerHTML='<svg viewBox="0 0 72 88" xmlns="http://www.w3.org/2000/svg" aria-label="Position et direction"><defs><filter id="glow"><feGaussianBlur stdDeviation="4"/></filter></defs><circle cx="36" cy="47" r="28" fill="#168aff" opacity=".24" filter="url(#glow)"/><circle cx="36" cy="47" r="24" fill="#ffffff" opacity=".95"/><circle cx="36" cy="47" r="20" fill="#087bff"/><path d="M36 18 L53 62 L36 52 L19 62 Z" fill="#fff" stroke="#073e92" stroke-width="2.5" stroke-linejoin="round"/></svg>';
  return e;
 }
 function beta3dBearing(a,b){
@@ -2374,7 +2400,7 @@ function beta3dInit(){
  document.getElementById('beta3dMap').style.display='block';
  if(beta3dMap){beta3dMap.resize();beta3dUpdateRoute();beta3dUpdatePosition(true);return;}
  try{
-  beta3dMap=new maplibregl.Map({container:'beta3dMap',style:'https://tiles.openfreemap.org/styles/liberty',center:[pos.lng,pos.lat],zoom:17.8,pitch:beta3dPitch,bearing:0,attributionControl:false,antialias:true,dragRotate:false});
+  beta3dMap=new maplibregl.Map({container:'beta3dMap',style:'https://tiles.openfreemap.org/styles/liberty',center:[pos.lng,pos.lat],zoom:18.25,pitch:beta3dPitch,bearing:0,attributionControl:false,antialias:true,dragRotate:false});
   beta3dMap.on('load',()=>{
    beta3dReady=true;
    try{
@@ -2385,7 +2411,7 @@ function beta3dInit(){
    beta3dMap.addSource('beta-route-3d',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[]},properties:{}}});
    beta3dMap.addLayer({id:'beta-route-border',type:'line',source:'beta-route-3d',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#fff','line-width':14,'line-opacity':.95}});
    beta3dMap.addLayer({id:'beta-route-blue',type:'line',source:'beta-route-3d',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#087bff','line-width':9}});
-   beta3dMarker=new maplibregl.Marker({element:beta3dCarElement(),anchor:'center',rotationAlignment:'map',pitchAlignment:'map'}).setLngLat([pos.lng,pos.lat]).addTo(beta3dMap);
+   beta3dMarker=new maplibregl.Marker({element:beta3dCarElement(),anchor:'center',rotationAlignment:'viewport',pitchAlignment:'viewport'}).setLngLat([pos.lng,pos.lat]).addTo(beta3dMap);
    beta3dUpdateRoute();beta3dUpdatePosition(true);
   });
   beta3dMap.on('error',e=>console.warn('Carte 3D',e.error));
@@ -2398,7 +2424,7 @@ function beta3dUpdateRoute(){
 function beta3dUpdatePosition(force=false){
  if(!beta3dReady||!betaNavActive||!beta3dMap)return;
  const pos=betaNavCurrentPosition();if(!pos)return;
- const now=performance.now();if(!force&&now-beta3dLastFrame<80)return;beta3dLastFrame=now;
+ const now=performance.now();if(!force&&now-beta3dLastFrame<145)return;beta3dLastFrame=now;
  let target=null;
  if(betaNavIsDemo&&betaNavSimPosition&&betaNavRouteCoords.length>1){
   const j=Math.min(betaNavSimIndex+1,betaNavRouteCoords.length-1);target={lat:betaNavRouteCoords[j][0],lng:betaNavRouteCoords[j][1]};
@@ -2409,10 +2435,10 @@ function beta3dUpdatePosition(force=false){
   beta3dHeading=(beta3dHeading+diff*(force?1:.23)+360)%360;
  }
  beta3dLastPosition={lat:pos.lat,lng:pos.lng};
- if(beta3dMarker){beta3dMarker.setLngLat([pos.lng,pos.lat]);beta3dMarker.setRotation(beta3dHeading);}
+ if(beta3dMarker){beta3dMarker.setLngLat([pos.lng,pos.lat]);beta3dMarker.setRotation(0);}
  if(betaNavFollowing){
   // Caméra tournée dans le sens de déplacement; la voiture reste visible sous le centre.
-  beta3dMap.jumpTo({center:[pos.lng,pos.lat],zoom:17.8,pitch:beta3dPitch,bearing:beta3dHeading,padding:{top:120,bottom:300,left:0,right:0}});
+  beta3dMap.easeTo({center:[pos.lng,pos.lat],zoom:18.25,pitch:beta3dPitch,bearing:beta3dHeading,padding:{top:100,bottom:Math.round(window.innerHeight*.42),left:0,right:0},duration:185,easing:t=>t,essential:true});
  }
 }
 function beta3dTogglePerspective(){beta3dPitch=beta3dPitch>10?0:64;document.getElementById('beta3dPitchButton').textContent=beta3dPitch?'3D':'2D';if(beta3dMap)beta3dMap.easeTo({pitch:beta3dPitch,duration:400});}
