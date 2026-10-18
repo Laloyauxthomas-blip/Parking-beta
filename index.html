@@ -363,6 +363,10 @@ input,select{
 #betaNavPanel .navActions{display:flex;gap:8px;margin-top:8px}
 #betaNavPanel .navActions button{flex:1;margin:0;padding:10px;font-size:13px}
 #betaNavStatus{font-size:13px;color:#444;margin-top:4px}
+#betaNavArrival{background:#e7f7ee;border:1px solid #8ad7aa;border-radius:12px;padding:10px;margin-top:8px;font-size:13px}
+#betaNavArrival button{width:100%;margin-top:7px}
+#betaNavSimMarker{background:#1264d7;border:3px solid #fff;border-radius:50%;width:20px;height:20px;box-shadow:0 2px 8px #0006}
+#betaNavPanel .navActions button{min-width:0}
 .navChoice{
   display:flex;
   align-items:center;
@@ -710,14 +714,18 @@ input,select{
 <div id="betaNavPanel" class="hidden" aria-live="polite">
   <strong>🧭 Navigation Parking Beta · Bêta</strong>
   <div id="betaNavStatus">Préparation de l’itinéraire…</div>
-  <div id="betaNavDemoNotice" class="hidden" style="font-size:12px;color:#92400e;margin-top:6px">🧪 Mode test : destination fictive, aucune place réservée, aucun gain.</div>
+  <div id="betaNavDemoNotice" class="hidden" style="font-size:12px;color:#92400e;margin-top:6px">🧪 Simulation locale uniquement : aucune place, validation ou récompense.</div>
+  <div id="betaNavArrival" class="hidden" role="status">📍 Zone d'arrivée atteinte. Vérifie que tu es réellement garé.
+    <button class="primary" onclick="betaNavArrived()">🚘 Confirmer mon stationnement</button>
+  </div>
   <div class="navActions">
-    <button class="secondary" onclick="betaRecenterRoute()">📍 Recentrer</button>
+    <button class="secondary" onclick="betaNavFollow()">🚗 Suivre</button>
+    <button class="secondary" onclick="betaRecenterRoute()">🗺️ Vue trajet</button>
     <button class="secondary" onclick="betaStopNavigation()">✕ Arrêter</button>
   </div>
   <div class="navActions">
-    <button class="secondary" onclick="openNavigationSheet()">Autres GPS</button>
-    <button class="primary" onclick="betaNavArrived()">🚘 Je suis arrivé</button>
+    <button id="betaNavSimButton" class="secondary hidden" onclick="betaNavToggleSimulation()">▶ Simuler le trajet</button>
+    <button class="secondary" onclick="betaNavOpenOtherGPS()">Autres GPS</button>
   </div>
 </div>
 
@@ -2129,6 +2137,13 @@ let betaNavLastOrigin=null;
 let betaNavDistance=null;
 let betaNavDuration=null;
 let betaNavRouteToken=0;
+let betaNavRouteCoords=[];
+let betaNavFollowing=true;
+let betaNavSimTimer=null;
+let betaNavSimMarker=null;
+let betaNavSimIndex=0;
+let betaNavSimProgress=0;
+let betaNavSimPosition=null;
 function betaNavMeters(n){return n>=1000?(n/1000).toFixed(1).replace('.',',')+' km':Math.round(n)+' m';}
 function betaNavSetStatus(message){const el=document.getElementById('betaNavStatus');if(el)el.textContent=message;}
 async function betaStartNavigation(){
@@ -2149,6 +2164,8 @@ function betaNavShowPanel(){
  closeNavSheet();
  document.getElementById('betaNavPanel').classList.remove('hidden');
  document.getElementById('betaNavDemoNotice').classList.toggle('hidden',!betaNavIsDemo);
+ document.getElementById('betaNavSimButton').classList.toggle('hidden',!betaNavIsDemo);
+ document.getElementById('betaNavArrival').classList.add('hidden');
 }
 async function betaStartDemoNavigation(){
  if(!userPosition)return toast('Attends la localisation GPS avant de lancer le test.');
@@ -2182,42 +2199,107 @@ async function betaNavCalculateRoute(force=false){
   const route=data.routes?.[0];
   if(!route||!route.geometry?.coordinates?.length)throw new Error('Aucun itinéraire routier');
   const coords=route.geometry.coordinates.map(([lng,lat])=>[lat,lng]);
+  betaNavRouteCoords=coords;
   if(betaNavLine)map.removeLayer(betaNavLine);
   betaNavLine=L.polyline(coords,{color:'#1677ff',weight:6,opacity:.85}).addTo(map);
   betaNavDistance=route.distance;betaNavDuration=route.duration;
   betaNavLastOrigin=origin;
-  map.fitBounds(betaNavLine.getBounds(),{padding:[40,40],maxZoom:16});
+  betaNavFollowing=true;
+  betaNavFollow();
   betaNavLocationUpdated();
  }catch(e){if(betaNavActive){console.warn('BETA NAV',e);betaNavSetStatus('Itinéraire indisponible. Utilise Waze, Plans ou Google Maps.');}}
  finally{betaNavRequestInFlight=false;}
 }
+function betaNavCurrentPosition(){return betaNavIsDemo&&betaNavSimPosition?betaNavSimPosition:userPosition;}
 function betaNavLocationUpdated(){
- if(!betaNavActive||!betaNavDestination||!userPosition)return;
- const straight=distanceMeters(userPosition.lat,userPosition.lng,betaNavDestination.lat,betaNavDestination.lng);
- const accuracy=userPosition.accuracy||999;
- if(straight<=50&&accuracy<=50){betaNavSetStatus('📍 Tu es près de la place. Confirme ton stationnement si tu es garé.');}
- else if(betaNavDistance!=null){betaNavSetStatus('🚗 Trajet estimé : '+betaNavMeters(betaNavDistance)+' · '+Math.max(1,Math.round(betaNavDuration/60))+' min · À vol d’oiseau : '+betaNavMeters(straight));}
- else betaNavSetStatus('📍 Distance à vol d’oiseau : '+betaNavMeters(straight));
- betaNavCalculateRoute(false);
+ if(!betaNavActive||!betaNavDestination)return;
+ const pos=betaNavCurrentPosition();if(!pos)return;
+ const straight=distanceMeters(pos.lat,pos.lng,betaNavDestination.lat,betaNavDestination.lng);
+ const accuracy=pos.accuracy||999;
+ const near=straight<=50&&accuracy<=50;
+ document.getElementById('betaNavArrival').classList.toggle('hidden',!near||betaNavIsDemo);
+ if(betaNavIsDemo&&betaNavSimPosition){
+  betaNavSetStatus('🧪 Simulation · '+betaNavMeters(straight)+' avant la destination · aucune validation possible');
+ }else if(near){
+  betaNavSetStatus('📍 Zone d’arrivée détectée · '+betaNavMeters(straight)+' · précision ±'+Math.round(accuracy)+' m');
+ }else if(betaNavDistance!=null){
+  betaNavSetStatus('🚗 Itinéraire : '+betaNavMeters(betaNavDistance)+' · '+Math.max(1,Math.round(betaNavDuration/60))+' min · destination à '+betaNavMeters(straight));
+ }else betaNavSetStatus('📍 Destination à '+betaNavMeters(straight));
+ if(betaNavFollowing)map.setView([pos.lat,pos.lng],Math.max(map.getZoom(),17),{animate:true});
+ if(!betaNavIsDemo)betaNavCalculateRoute(false);
+}
+function betaNavFollow(){
+ if(!betaNavActive)return;
+ betaNavFollowing=true;
+ const pos=betaNavCurrentPosition();
+ if(pos)map.setView([pos.lat,pos.lng],17,{animate:true});
 }
 function betaRecenterRoute(){
- if(userPosition)map.setView([userPosition.lat,userPosition.lng],17);
- else toast('Position GPS indisponible.');
+ if(!betaNavActive)return;
+ betaNavFollowing=false;
+ if(betaNavLine)map.fitBounds(betaNavLine.getBounds(),{padding:[55,55],maxZoom:16});
+ else if(userPosition)map.setView([userPosition.lat,userPosition.lng],15);
+}
+function betaNavStopSimulation(){
+ if(betaNavSimTimer){clearInterval(betaNavSimTimer);betaNavSimTimer=null;}
+ if(betaNavSimMarker){map.removeLayer(betaNavSimMarker);betaNavSimMarker=null;}
+ betaNavSimPosition=null;betaNavSimIndex=0;betaNavSimProgress=0;
+ const b=document.getElementById('betaNavSimButton');if(b)b.textContent='▶ Simuler le trajet';
+}
+function betaNavToggleSimulation(){
+ if(!betaNavIsDemo||!betaNavActive)return;
+ if(betaNavSimTimer){clearInterval(betaNavSimTimer);betaNavSimTimer=null;document.getElementById('betaNavSimButton').textContent='▶ Reprendre simulation';return;}
+ if(betaNavRouteCoords.length<2)return toast('Attends que le trajet bleu soit calculé.');
+ if(betaNavSimIndex>=betaNavRouteCoords.length-1){betaNavStopSimulation();}
+ if(!betaNavSimMarker){
+  betaNavSimPosition={lat:betaNavRouteCoords[0][0],lng:betaNavRouteCoords[0][1],accuracy:5};
+  betaNavSimMarker=L.circleMarker([betaNavSimPosition.lat,betaNavSimPosition.lng],{radius:10,color:'#fff',weight:3,fillColor:'#1264d7',fillOpacity:1}).addTo(map).bindTooltip('🚗 Pilote fictif');
+ }
+ betaNavFollowing=true;
+ document.getElementById('betaNavSimButton').textContent='⏸ Pause simulation';
+ betaNavSimTimer=setInterval(()=>{
+  if(!betaNavActive||!betaNavIsDemo){betaNavStopSimulation();return;}
+  let remaining=12; // Environ 12 m par seconde, purement visuel.
+  while(remaining>0&&betaNavSimIndex<betaNavRouteCoords.length-1){
+   const a=betaNavRouteCoords[betaNavSimIndex],b=betaNavRouteCoords[betaNavSimIndex+1];
+   const segment=distanceMeters(a[0],a[1],b[0],b[1]);
+   if(segment<0.01){betaNavSimIndex++;betaNavSimProgress=0;continue;}
+   const available=(1-betaNavSimProgress)*segment;
+   if(remaining>=available){remaining-=available;betaNavSimIndex++;betaNavSimProgress=0;}
+   else{betaNavSimProgress+=remaining/segment;remaining=0;}
+  }
+  const end=betaNavSimIndex>=betaNavRouteCoords.length-1;
+  const a=betaNavRouteCoords[betaNavSimIndex],b=betaNavRouteCoords[Math.min(betaNavSimIndex+1,betaNavRouteCoords.length-1)];
+  const lat=a[0]+(b[0]-a[0])*betaNavSimProgress,lng=a[1]+(b[1]-a[1])*betaNavSimProgress;
+  betaNavSimPosition={lat,lng,accuracy:5};betaNavSimMarker.setLatLng([lat,lng]);betaNavLocationUpdated();
+  if(end){clearInterval(betaNavSimTimer);betaNavSimTimer=null;document.getElementById('betaNavSimButton').textContent='↻ Rejouer';betaNavSetStatus('🧪 Simulation terminée · aucun stationnement validé');}
+ },1000);
+}
+function betaNavOpenOtherGPS(){
+ // La destination fictive n'est pas un signalement : aucun lien externe ne doit dépendre de selectedSpot.
+ if(!betaNavDestination)return toast('Aucune destination.');
+ const d=betaNavDestination;
+ const nav=document.getElementById('navSheet');
+ nav.classList.remove('hidden');
+ nav.style.zIndex='4900';
+ // Les boutons de navigation externe utilisent la destination active.
 }
 function betaStopNavigation(){
- betaNavActive=false;betaNavIsDemo=false;betaNavRouteToken++;betaNavDestination=null;betaNavDistance=null;betaNavDuration=null;betaNavLastOrigin=null;
+ betaNavStopSimulation();
+ betaNavActive=false;betaNavIsDemo=false;betaNavFollowing=true;betaNavRouteToken++;betaNavDestination=null;betaNavDistance=null;betaNavDuration=null;betaNavLastOrigin=null;betaNavRouteCoords=[];
  if(betaNavLine){map.removeLayer(betaNavLine);betaNavLine=null;}
  if(betaNavDemoMarker){map.removeLayer(betaNavDemoMarker);betaNavDemoMarker=null;}
  document.getElementById('betaNavPanel').classList.add('hidden');
+ document.getElementById('betaNavArrival').classList.add('hidden');
+ closeNavSheet();
 }
 function betaNavArrived(){
  if(!betaNavActive)return;
- if(betaNavIsDemo)return toast('🧪 Mode test : aucun stationnement ni récompense ne peut être validé.');
+ if(betaNavIsDemo)return toast('🧪 Aucun stationnement possible en mode simulation.');
  if(!userPosition||!betaNavDestination)return toast('GPS indisponible.');
  const d=distanceMeters(userPosition.lat,userPosition.lng,betaNavDestination.lat,betaNavDestination.lng);
- if(d>120||userPosition.accuracy>80)return toast('Tu es trop loin ou ton GPS manque de précision.');
+ if(d>50||userPosition.accuracy>50)return toast('Arrivée non vérifiée : rapproche-toi de la place avec un GPS précis.');
  betaStopNavigation();
- closeNavSheet();
  document.getElementById('driverSheet').classList.add('hidden');
  openParkedSheet();
 }
@@ -2226,10 +2308,7 @@ function betaNavArrived(){
 
 function openNavigationSheet(){
 
-  if(!selectedSpot){
-    return;
-  }
-
+  if(!selectedSpot&&!betaNavDestination){return toast('Choisis une destination.');}
   betaBeginTrackingSilently();
   document
     .getElementById("navSheet")
@@ -2237,23 +2316,18 @@ function openNavigationSheet(){
 }
 
 function closeNavSheet(){
-
-  document
-    .getElementById("navSheet")
-    .classList.add("hidden");
+  const el=document.getElementById('navSheet');
+  el.classList.add('hidden');el.style.zIndex='';
 }
 
 function navigateWith(app){
 
-  if(!selectedSpot){
-    return;
-  }
-
-  const lat=
-    +selectedSpot.latitude;
-
-  const lng=
-    +selectedSpot.longitude;
+  const target=betaNavActive&&betaNavDestination
+    ? {latitude:betaNavDestination.lat,longitude:betaNavDestination.lng}
+    : selectedSpot;
+  if(!target)return toast('Aucune destination disponible.');
+  const lat=+target.latitude;
+  const lng=+target.longitude;
 
   let url;
 
@@ -2275,6 +2349,7 @@ function navigateWith(app){
       `https://waze.com/ul?ll=${lat}%2C${lng}&navigate=yes`;
   }
 
+  closeNavSheet();
   window.location.href=url;
 }
 
