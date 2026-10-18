@@ -10,6 +10,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
 <style>
 *{box-sizing:border-box}
@@ -477,6 +479,39 @@ body.beta-driving #betaNavPanel.beta-compact .betaNavSecondaryControls{display:n
 body.beta-driving .leaflet-control-zoom{display:none!important}
 body.beta-driving #betaNavDemoArrival,body.beta-driving #betaNavArrival{font-size:12px}
 @media(min-width:700px){body.beta-driving #betaNavPanel{max-width:500px}body.beta-driving #betaNavCockpit{max-width:500px}}
+
+/* LOT 7 — Vue 3D orientée dans le sens du véhicule. */
+#beta3dMap{position:fixed;inset:0;z-index:3;display:none;background:#d7e2dd}
+body.beta-driving #beta3dMap{display:block}
+body.beta-driving #map{visibility:hidden}
+body.beta-driving #betaNavCockpit{z-index:4100;top:calc(8px + env(safe-area-inset-top));left:10px;right:10px;max-width:620px;border-radius:24px;background:linear-gradient(120deg,#061d30f5,#092f4bea);padding:16px 18px;box-shadow:0 10px 35px #0007;min-height:98px}
+body.beta-driving #betaNavTurn{font-size:clamp(23px,6vw,33px)}
+body.beta-driving #betaNavTurnDistance{font-size:13px;color:#c9e6fa}
+body.beta-driving #betaNavPanel{z-index:4100;bottom:calc(7px + env(safe-area-inset-bottom));max-width:620px;border:1px solid #42647c;background:linear-gradient(145deg,#061a2bf4,#0b2b40f5);color:#fff;box-shadow:0 12px 45px #0009;padding:12px;max-height:min(70dvh,650px)}
+body.beta-driving #betaNavPanel .betaAssistantToggle{color:#fff;font-size:16px}
+body.beta-driving #betaNavPanel .betaAssistantToggle span{color:#77c9ff}
+body.beta-driving #betaNavPanel:not(.beta-compact) .betaAssistantToggle{background:#09243a}
+body.beta-driving #betaNavMetrics>div{background:#102f49;color:#fff;border:1px solid #2c516b}
+body.beta-driving #betaNavMetrics strong{color:#fff}
+body.beta-driving #betaNavPanel .navActions button{background:#153b57;color:#fff;border:1px solid #2b526b}
+body.beta-driving #betaNavPanel .betaNavPrimaryControls button:first-child{background:#087bfa;color:#fff}
+body.beta-driving .betaAltSection,body.beta-driving #betaNavParking{background:#0d3049;border-color:#295673;color:#fff}
+body.beta-driving .betaAltHead strong,body.beta-driving .betaAltNotice,body.beta-driving #betaNavStatus{color:#c7e5f8}
+body.beta-driving .betaAltCard{background:#103752;border-color:#2b5b78;color:#fff}
+body.beta-driving .betaAltCard b{color:#fff}
+body.beta-driving .betaAltCard small{color:#b7d7ed}
+body.beta-driving #betaNavPanel.beta-compact{max-height:180px}
+body.beta-driving #betaNavPanel.beta-compact .betaNavSecondaryControls{display:flex}
+body.beta-driving #betaNavPanel.beta-compact .betaNavSecondaryControls button{font-size:11px;min-height:30px;padding:5px}
+body.beta-driving #betaNavPanel.beta-compact #betaNavStatus{display:none!important}
+#beta3dCar{width:56px;height:85px;pointer-events:none;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 9px 6px #0008)}
+#beta3dCar svg{width:56px;height:85px}
+#beta3dControls{position:fixed;right:12px;top:calc(135px + env(safe-area-inset-top));z-index:4150;display:none;flex-direction:column;gap:9px}
+body.beta-driving #beta3dControls{display:flex}
+#beta3dControls button{width:49px;height:49px;border-radius:50%;padding:0;background:#082a43e8;color:white;border:1px solid #51748b;box-shadow:0 3px 12px #0005;font-size:16px}
+#beta3dNotice{position:fixed;left:12px;right:75px;top:calc(126px + env(safe-area-inset-top));z-index:4100;background:#0a2339d9;color:#d4ebf9;border-radius:12px;padding:7px 11px;font-size:11px;display:none;max-width:410px}
+body.beta-driving #beta3dNotice{display:block}
+body.beta-driving #betaNavPanel:not(.beta-compact) .betaAltList{max-height:240px}
 </style>
 </head>
 
@@ -777,6 +812,10 @@ body.beta-driving #betaNavDemoArrival,body.beta-driving #betaNavArrival{font-siz
   </button>
 
 </div>
+
+<div id="beta3dMap" aria-label="Carte GPS en perspective"></div>
+<div id="beta3dNotice">Vue 3D expérimentale · la précision et les bâtiments dépendent des données cartographiques.</div>
+<div id="beta3dControls"><button onclick="betaNavFollow()" title="Suivre la voiture">➤</button><button onclick="beta3dTogglePerspective()" id="beta3dPitchButton" title="Changer la perspective">3D</button><button onclick="betaNavToggleAssistant()" title="Assistant parking">🅿️</button></div>
 
 <div id="betaNavPanel" class="hidden" aria-live="polite">
   <strong class="betaNavTitle">🧭 Navigation Parking Beta · Bêta</strong>
@@ -2311,6 +2350,74 @@ function betaAltDemoUnavailable(){
  betaAltRefresh(true);
  toast('🧪 Place fictive devenue indisponible. Choisis une alternative : aucun gain possible.');
 }
+
+/* LOT 7 — Carte vectorielle avec caméra orientée (MapLibre + OpenFreeMap).
+   Carte Leaflet conservée pour toutes les autres fonctions. Pas de fausse position envoyée au serveur. */
+let beta3dMap=null,beta3dMarker=null,beta3dReady=false,beta3dPitch=64,beta3dHeading=0,beta3dLastPosition=null,beta3dLastFrame=0,beta3dFailed=false;
+function beta3dCarElement(){
+ const e=document.createElement('div');e.id='beta3dCar';
+ e.innerHTML='<svg viewBox="0 0 56 85" xmlns="http://www.w3.org/2000/svg"><ellipse cx="28" cy="46" rx="24" ry="33" fill="#000" opacity=".28"/><rect x="9" y="5" width="38" height="74" rx="15" fill="#e8f4ff" stroke="#0d2b45" stroke-width="3"/><rect x="13" y="21" width="30" height="18" rx="6" fill="#2e637e"/><rect x="13" y="48" width="30" height="15" rx="5" fill="#2e637e"/><path d="M28 3 L18 17 L38 17 Z" fill="#00a6ff"/><rect x="12" y="8" width="7" height="5" rx="2" fill="#fef9c3"/><rect x="37" y="8" width="7" height="5" rx="2" fill="#fef9c3"/><rect x="12" y="70" width="8" height="4" rx="1" fill="#ff334d"/><rect x="36" y="70" width="8" height="4" rx="1" fill="#ff334d"/></svg>';
+ return e;
+}
+function beta3dBearing(a,b){
+ const x=(b.lng-a.lng)*Math.cos((a.lat+b.lat)*Math.PI/360),y=b.lat-a.lat;
+ return (Math.atan2(x,y)*180/Math.PI+360)%360;
+}
+function beta3dInit(){
+ if(beta3dFailed||typeof maplibregl==='undefined'){
+  document.getElementById('beta3dMap').style.display='none';
+  document.getElementById('map').style.visibility='visible';
+  document.getElementById('beta3dNotice').textContent='Carte 3D indisponible : carte classique conservée.';
+  return;
+ }
+ const pos=betaNavCurrentPosition()||userPosition;if(!pos)return;
+ document.getElementById('beta3dMap').style.display='block';
+ if(beta3dMap){beta3dMap.resize();beta3dUpdateRoute();beta3dUpdatePosition(true);return;}
+ try{
+  beta3dMap=new maplibregl.Map({container:'beta3dMap',style:'https://tiles.openfreemap.org/styles/liberty',center:[pos.lng,pos.lat],zoom:17.8,pitch:beta3dPitch,bearing:0,attributionControl:false,antialias:true,dragRotate:false});
+  beta3dMap.on('load',()=>{
+   beta3dReady=true;
+   try{
+    if(beta3dMap.getSource('openmaptiles')){
+     beta3dMap.addLayer({id:'beta-buildings-3d',type:'fill-extrusion',source:'openmaptiles','source-layer':'building',minzoom:15,paint:{'fill-extrusion-color':'#d5d8d9','fill-extrusion-height':['interpolate',['linear'],['zoom'],15,0,16,['coalesce',['get','render_height'],['get','height'],9]],'fill-extrusion-base':['coalesce',['get','render_min_height'],0],'fill-extrusion-opacity':0.82}});
+    }
+   }catch(err){console.warn('Bâtiments 3D facultatifs',err);}
+   beta3dMap.addSource('beta-route-3d',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[]},properties:{}}});
+   beta3dMap.addLayer({id:'beta-route-border',type:'line',source:'beta-route-3d',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#fff','line-width':14,'line-opacity':.95}});
+   beta3dMap.addLayer({id:'beta-route-blue',type:'line',source:'beta-route-3d',layout:{'line-join':'round','line-cap':'round'},paint:{'line-color':'#087bff','line-width':9}});
+   beta3dMarker=new maplibregl.Marker({element:beta3dCarElement(),anchor:'center',rotationAlignment:'map',pitchAlignment:'map'}).setLngLat([pos.lng,pos.lat]).addTo(beta3dMap);
+   beta3dUpdateRoute();beta3dUpdatePosition(true);
+  });
+  beta3dMap.on('error',e=>console.warn('Carte 3D',e.error));
+ }catch(e){console.warn('3D fallback',e);beta3dFailed=true;document.getElementById('beta3dMap').style.display='none';document.getElementById('map').style.visibility='visible';}
+}
+function beta3dUpdateRoute(){
+ if(!beta3dReady||!beta3dMap)return;
+ const source=beta3dMap.getSource('beta-route-3d');if(source)source.setData({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:betaNavRouteCoords.map(([lat,lng])=>[lng,lat])}});
+}
+function beta3dUpdatePosition(force=false){
+ if(!beta3dReady||!betaNavActive||!beta3dMap)return;
+ const pos=betaNavCurrentPosition();if(!pos)return;
+ const now=performance.now();if(!force&&now-beta3dLastFrame<80)return;beta3dLastFrame=now;
+ let target=null;
+ if(betaNavIsDemo&&betaNavSimPosition&&betaNavRouteCoords.length>1){
+  const j=Math.min(betaNavSimIndex+1,betaNavRouteCoords.length-1);target={lat:betaNavRouteCoords[j][0],lng:betaNavRouteCoords[j][1]};
+ }
+ if(!target&&beta3dLastPosition&&distanceMeters(beta3dLastPosition.lat,beta3dLastPosition.lng,pos.lat,pos.lng)>2)target={lat:pos.lat,lng:pos.lng};
+ if(target&&distanceMeters(pos.lat,pos.lng,target.lat,target.lng)>0.2){
+  const heading=beta3dBearing(pos,target);let diff=((heading-beta3dHeading+540)%360)-180;
+  beta3dHeading=(beta3dHeading+diff*(force?1:.23)+360)%360;
+ }
+ beta3dLastPosition={lat:pos.lat,lng:pos.lng};
+ if(beta3dMarker){beta3dMarker.setLngLat([pos.lng,pos.lat]);beta3dMarker.setRotation(beta3dHeading);}
+ if(betaNavFollowing){
+  // Caméra tournée dans le sens de déplacement; la voiture reste visible sous le centre.
+  beta3dMap.jumpTo({center:[pos.lng,pos.lat],zoom:17.8,pitch:beta3dPitch,bearing:beta3dHeading,padding:{top:120,bottom:300,left:0,right:0}});
+ }
+}
+function beta3dTogglePerspective(){beta3dPitch=beta3dPitch>10?0:64;document.getElementById('beta3dPitchButton').textContent=beta3dPitch?'3D':'2D';if(beta3dMap)beta3dMap.easeTo({pitch:beta3dPitch,duration:400});}
+function beta3dStop(){beta3dLastPosition=null;beta3dHeading=0;if(beta3dMap){beta3dMap.remove();beta3dMap=null;}beta3dMarker=null;beta3dReady=false;document.getElementById('beta3dMap').style.display='none';}
+
 function betaNavMeters(n){return n>=1000?(n/1000).toFixed(1).replace('.',',')+' km':Math.round(n)+' m';}
 function betaNavSetStatus(message){const el=document.getElementById('betaNavStatus');if(el)el.textContent=message;}
 async function betaStartNavigation(){
@@ -2343,7 +2450,7 @@ function betaNavShowPanel(){
  document.getElementById('betaNavPanel').classList.add('beta-compact');
  document.getElementById('betaAssistantToggle').setAttribute('aria-expanded','false');
  document.getElementById('betaAssistantToggle').querySelector('span').textContent='Voir les places et actions ▴';
- setTimeout(()=>{map.invalidateSize();betaNavFollow();},160);
+ setTimeout(()=>{map.invalidateSize();betaNavFollow();beta3dInit();},160);
  document.getElementById('betaNavDemoNotice').classList.toggle('hidden',!betaNavIsDemo);
  document.getElementById('betaNavSimButton').classList.toggle('hidden',!betaNavIsDemo);
  document.getElementById('betaNavArrival').classList.add('hidden');
@@ -2389,7 +2496,7 @@ async function betaNavCalculateRoute(force=false){
   const route=data.routes?.[0];
   if(!route||!route.geometry?.coordinates?.length)throw new Error('Aucun itinéraire routier');
   const coords=route.geometry.coordinates.map(([lng,lat])=>[lat,lng]);
-  betaNavRouteCoords=coords;
+  betaNavRouteCoords=coords;beta3dUpdateRoute();
   if(betaNavLine)map.removeLayer(betaNavLine);
   betaNavLine=L.polyline(coords,{color:'#1677ff',weight:6,opacity:.85}).addTo(map);
   betaNavDistance=route.distance;betaNavDuration=route.duration;
@@ -2489,7 +2596,8 @@ function betaNavLocationUpdated(){
  }else if(betaNavDistance!=null){
   betaNavSetStatus('🚗 Itinéraire : '+betaNavMeters(betaNavDistance)+' · '+Math.max(1,Math.round(betaNavDuration/60))+' min · destination à '+betaNavMeters(straight));
  }else betaNavSetStatus('📍 Destination à '+betaNavMeters(straight));
- if(betaNavFollowing){map.panTo([pos.lat,pos.lng],{animate:false});if(map.getZoom()<18)map.setZoom(18,{animate:false});}
+ beta3dUpdatePosition();
+ if(betaNavFollowing&&!beta3dReady){map.panTo([pos.lat,pos.lng],{animate:false});if(map.getZoom()<18)map.setZoom(18,{animate:false});}
  if(!betaNavIsDemo)betaNavCalculateRoute(false);
 }
 function betaNavFollow(){
@@ -2497,10 +2605,12 @@ function betaNavFollow(){
  betaNavFollowing=true;
  const pos=betaNavCurrentPosition();
  if(pos)map.setView([pos.lat,pos.lng],18,{animate:false});
+ beta3dUpdatePosition(true);
 }
 function betaRecenterRoute(){
  if(!betaNavActive)return;
  betaNavFollowing=false;
+ if(beta3dReady&&betaNavRouteCoords.length>1){const bounds=new maplibregl.LngLatBounds();betaNavRouteCoords.forEach(([lat,lng])=>bounds.extend([lng,lat]));beta3dMap.fitBounds(bounds,{padding:{top:160,bottom:290,left:35,right:35},pitch:25,bearing:0,duration:700});}
  if(betaNavLine)map.fitBounds(betaNavLine.getBounds(),{padding:[55,55],maxZoom:16});
  else if(userPosition)map.setView([userPosition.lat,userPosition.lng],15);
 }
@@ -2539,7 +2649,7 @@ function betaNavToggleSimulation(){
   const end=betaNavSimIndex>=betaNavRouteCoords.length-1;
   const a=betaNavRouteCoords[betaNavSimIndex],b=betaNavRouteCoords[Math.min(betaNavSimIndex+1,betaNavRouteCoords.length-1)];
   const lat=a[0]+(b[0]-a[0])*betaNavSimProgress,lng=a[1]+(b[1]-a[1])*betaNavSimProgress;
-  betaNavSimPosition={lat,lng,accuracy:5};betaNavSimMarker.setLatLng([lat,lng]);betaNavLocationUpdated();
+  betaNavSimPosition={lat,lng,accuracy:5};betaNavSimMarker.setLatLng([lat,lng]);betaNavLocationUpdated();beta3dUpdatePosition();
   if(end){clearInterval(betaNavSimTimer);betaNavSimTimer=null;betaNavSimSpeed=0;document.getElementById('betaNavSimButton').textContent='↻ Rejouer';betaNavSetStatus('🧪 Simulation terminée · aucun stationnement validé');betaNavRefreshCockpit();}
  },50);
 }
@@ -2553,7 +2663,7 @@ function betaNavOpenOtherGPS(){
  // Les boutons de navigation externe utilisent la destination active.
 }
 function betaStopNavigation(){
- betaNavStopSimulation();
+ betaNavStopSimulation();beta3dStop();
  betaNavActive=false;betaNavIsDemo=false;betaNavFollowing=true;betaAltOpen=false;betaAltDemoUnavailableFlag=false;betaAltDemoPoints=[];betaNavRouteToken++;betaNavDestination=null;betaNavDistance=null;betaNavDuration=null;betaNavLastOrigin=null;betaNavRouteCoords=[];
  if(betaNavLine){map.removeLayer(betaNavLine);betaNavLine=null;}
  if(betaNavDemoMarker){map.removeLayer(betaNavDemoMarker);betaNavDemoMarker=null;}
